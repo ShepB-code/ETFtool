@@ -1,3 +1,4 @@
 .venv/
-first_fund_report.xlsx
-first_trust_outcome_period_values.json
+chrome-win64/
+*.json
+*.xlsx
