@@ -104,7 +104,7 @@ def pacer():
 
     # Set up Chrome options for headless mode
     chrome_options = Options()
-    #chrome_options.add_argument("--headless")  # Run Chrome in headless mode
+    #chrome_options.headless = True
 
     # Create a WebDriver instance with headless Chrome
     driver = webdriver.Chrome(options=chrome_options)
@@ -117,40 +117,57 @@ def pacer():
     
     # Get the page source after JavaScript has executed
     soup = BeautifulSoup(driver.page_source, "html.parser")
-
+    driver.close()
 
     table_body = soup.find('tbody', {'id': 'swan-list'})
 
-    table_rows = table_body.findAll('tr')
+    main_page_trs = table_body.findAll('tr')
 
     all_etf_dict = {}
-    for i, row in enumerate(table_rows):
-        th = row.find('th')
-        td = row.findAll('td')
+    for i, main_page_row in enumerate(main_page_trs):
+        main_page_th = main_page_row.find('th')
 
-        ticker = th.text
-        remaining_cap = td[7].text.strip('%')
-        remaining_buffer = td[8].text.strip('%')
-        remaining_outcome_period = int(td[9].text)
+        # with ticker iterate through each page (new ETF safe)
+        ticker = main_page_th.text
         
-        if is_numeric(remaining_cap) and is_numeric(remaining_buffer) and remaining_outcome_period != 0:
-            all_etf_dict[ticker] = {}
-            all_etf_dict[ticker]['remaining_cap'] = float(remaining_cap) / 100 # convert to percent
-            all_etf_dict[ticker]['remaining_buffer'] = float(remaining_buffer) / 100 
-            #all_etf_dict[ticker]['downside_before_buffer'] = float(downside_before_buffer) / 100
-            all_etf_dict[ticker]['remaining_outcome_period'] = remaining_outcome_period
+        # init a new driver for each ETF page
+        driver_two = webdriver.Chrome(options=chrome_options)
+        driver_two.get(f'{etf_url}/{ticker.lower()}')
+        sleep(2)
 
+        soup_two = BeautifulSoup(driver_two.page_source, "html.parser")
+        divs = soup_two.findAll('div', {'class': 'panel panel-default'})
+        table_div = [div for div in divs if div.find('div', {'class': 'panel-header'}) != None and div.find('div', {'class': 'panel-header'}).find('h2').text == "Current Values"]
+
+        if len(table_div) == 1:
+            current_value_table = table_div[0].find('table')
+
+            etf_page_tds = current_value_table.findAll('td')
+
+            remaining_cap = etf_page_tds[4].text.split('/')[1].strip('%')
+            remaining_buffer = etf_page_tds[5].text.split('/')[1].strip('%')
+            downside_before_buffer = etf_page_tds[6].text.split('/')[1].strip('%')
+            remaining_outcome_period = int(etf_page_tds[7].text.split(' ')[0])
+        
+            if is_numeric(remaining_cap) and is_numeric(remaining_buffer) and is_numeric(downside_before_buffer) and remaining_outcome_period != 0:
+                all_etf_dict[ticker] = {}
+                all_etf_dict[ticker]['remaining_cap'] = float(remaining_cap) / 100 # convert to percent
+                all_etf_dict[ticker]['remaining_buffer'] = float(remaining_buffer) / 100 
+                all_etf_dict[ticker]['downside_before_buffer'] = float(downside_before_buffer) / 100
+                all_etf_dict[ticker]['remaining_outcome_period'] = remaining_outcome_period
+
+    driver.quit()
     print("Finished...")
     return all_etf_dict
 
 def main():
     all_etfs_dict = {}
 
-    first_trust_dict = first_trust()
-    all_etfs_dict["First Trust"] = first_trust_dict
+    # first_trust_dict = first_trust()
+    # all_etfs_dict["First Trust"] = first_trust_dict
 
-    innovator_dict = innovator()
-    all_etfs_dict["Innovator"] = innovator_dict
+    # innovator_dict = innovator()
+    # all_etfs_dict["Innovator"] = innovator_dict
 
     pacer_dict = pacer()
     all_etfs_dict["Pacer"] = pacer_dict
