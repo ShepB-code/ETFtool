@@ -1,10 +1,12 @@
 import json
 import openpyxl as xl
+from datetime import datetime
+from openpyxl.utils import FORMULAE
+
 
 def main():
     # open workbook
-    wb = xl.load_workbook('test_report.xlsx')
-    #wb = xl.Workbook()
+    wb = xl.Workbook()
     ws = wb.active
     ws.title = "ETFs"
 
@@ -34,7 +36,7 @@ def main():
                 current_cell += 1
 
     # write to Calculations Sheet
-    ns = wb['Calc']
+    ns = wb.create_sheet(title='Calc')
 
     ns['A1'] = 'Risk/Reward'
     ns.column_dimensions['A'].auto_size = True
@@ -51,7 +53,6 @@ def main():
     ns['E1'] = 'Score'
     ns.column_dimensions['E'].auto_size = True
 
-
     ns['F1'] = 'Time Factor'
     ns['F2'] = 100
 
@@ -65,8 +66,13 @@ def main():
         ns.cell(i + 2, 4).value = f'=ETFs!F{i+2}/ETFs!G{i+2}' # E column
         ns.cell(i + 2, 5).value = f'=C{i+2}+D{i+2}'
 
-
-    wb.save("test_report.xlsx")
+    
+    # write score ranking equations in ETF sheet
+    for i in range(total_written):
+        formula = f'=_xlfn.RANK.EQ(Calc!E{i+2}, Calc!$E$2:Calc!$E${total_written+1})'
+        ws.cell(row=i + 2, column=1, value=formula)
+    filename = f'ETFReport_{datetime.now().strftime("%m-%d-%Y")}.xlsx'
+    wb.save(filename)
 
     wb.close()
 

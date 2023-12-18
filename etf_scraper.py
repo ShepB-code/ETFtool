@@ -7,10 +7,10 @@ from selenium.webdriver.chrome.options import Options
 from time import sleep
 
 
-def is_numeric(num):
+def is_numeric_and_not_zero(num):
     try:
         fnum = float(num)
-        return True
+        return fnum != 0
     except ValueError:
         return False
 
@@ -49,7 +49,7 @@ def first_trust():
         downside_before_buffer = td[8].find('span').text.strip('%')
         remaining_outcome_period = int(td[9].text.split(' ')[0])
 
-        if is_numeric(remaining_cap) and is_numeric(remaining_buffer) and is_numeric(downside_before_buffer) and remaining_outcome_period != 0:
+        if is_numeric_and_not_zero(remaining_cap) and is_numeric_and_not_zero(remaining_buffer) and is_numeric_and_not_zero(downside_before_buffer) and remaining_outcome_period != 0:
             all_etf_dict[ticker] = {}
             all_etf_dict[ticker]['remaining_cap'] = float(remaining_cap) / 100 # convert to percent
             all_etf_dict[ticker]['remaining_buffer'] = float(remaining_buffer) / 100 
@@ -88,7 +88,7 @@ def innovator():
         downside_before_buffer = td[11].text.strip('%')
         remaining_outcome_period = int(td[12].text.split(' ')[0])
 
-        if is_numeric(remaining_cap) and is_numeric(remaining_buffer) and is_numeric(downside_before_buffer) and remaining_outcome_period != 0:
+        if is_numeric_and_not_zero(remaining_cap) and is_numeric_and_not_zero(remaining_buffer) and is_numeric_and_not_zero(downside_before_buffer) and remaining_outcome_period != 0:
             all_etf_dict[ticker] = {}
             all_etf_dict[ticker]['remaining_cap'] = float(remaining_cap) / 100 # convert to percent
             all_etf_dict[ticker]['remaining_buffer'] = float(remaining_buffer) / 100 
@@ -124,7 +124,7 @@ def thread_scrape_pacer_etf(ticker):
         downside_before_buffer = etf_page_tds[6].text.split('/')[1].strip('%')
         remaining_outcome_period = int(etf_page_tds[7].text.split(' ')[0])
     
-        if is_numeric(remaining_cap) and is_numeric(remaining_buffer) and is_numeric(downside_before_buffer) and remaining_outcome_period != 0:
+        if is_numeric_and_not_zero(remaining_cap) and is_numeric_and_not_zero(remaining_buffer) and is_numeric_and_not_zero(downside_before_buffer) and remaining_outcome_period != 0:
             result = {
                 'remaining_cap': float(remaining_cap) / 100,
                 'remaining_buffer': float(remaining_buffer) / 100,
