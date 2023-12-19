@@ -4,7 +4,7 @@ from datetime import datetime
 from openpyxl.utils import FORMULAE
 
 
-def main():
+def excel_writer():
     # open workbook
     wb = xl.Workbook()
     ws = wb.active
@@ -72,9 +72,11 @@ def main():
         formula = f'=_xlfn.RANK.EQ(Calc!E{i+2}, Calc!$E$2:Calc!$E${total_written+1})'
         ws.cell(row=i + 2, column=1, value=formula)
     filename = f'ETFReport_{datetime.now().strftime("%m-%d-%Y")}.xlsx'
-    wb.save(filename)
 
+    wb.save(filename)
     wb.close()
+    
+    return filename
 
 if __name__ == "__main__":
-    main()
+    excel_writer()

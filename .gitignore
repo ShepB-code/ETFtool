@@ -2,3 +2,4 @@
 chrome-win64/
 *.json
 *.xlsx
+__pycache__/

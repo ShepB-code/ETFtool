@@ -173,7 +173,7 @@ def pacer():
     return all_etf_dict
 
 
-def main():
+def scraper_main():
     all_etfs_dict = {}
 
     first_trust_dict = first_trust()
@@ -194,4 +194,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    scraper_main()
