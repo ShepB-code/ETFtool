@@ -1,8 +1,6 @@
 import json
 import openpyxl as xl
 from datetime import datetime
-from openpyxl.utils import FORMULAE
-
 
 def excel_writer():
     # open workbook
@@ -75,7 +73,7 @@ def excel_writer():
 
     wb.save(filename)
     wb.close()
-    
+
     return filename
 
 if __name__ == "__main__":

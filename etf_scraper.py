@@ -39,7 +39,8 @@ def first_trust():
     for i, row in enumerate(ticker_table_rows):
         
         td = row.findAll('td')
-        if len(td) == 0: continue
+        
+        if len(td) == 0: continue # skip header row
 
         # grab ticker, remaining cap, remaining buffer, downside before buffer, remaining outcome period
 
@@ -69,6 +70,7 @@ def innovator():
     page = requests.get(etf_url, headers=headers)    
     soup = BeautifulSoup(page.content, "html.parser")
 
+    # find etf table
     table = soup.find('table', {'class': 'DOGrid'})
 
     ticker_table_rows = table.findAll('tr')
@@ -103,7 +105,7 @@ def thread_scrape_pacer_etf(ticker):
     etf_url = f'https://www.paceretfs.com/products/structured-outcome-strategies/{ticker}'
 
     chrome_options = Options()
-    chrome_options.headless = True
+    chrome_options.add_argument('ignore-certificate-errors')
 
     driver = webdriver.Chrome(options=chrome_options)
     driver.get(etf_url)
@@ -111,9 +113,11 @@ def thread_scrape_pacer_etf(ticker):
     soup = BeautifulSoup(driver.page_source, "html.parser")
     driver.quit()
 
+    # find current value table for specified ETF
     divs = soup.findAll('div', {'class': 'panel panel-default'})
     table_div = [div for div in divs if div.find('div', {'class': 'panel-header'}) != None and div.find('div', {'class': 'panel-header'}).find('h2').text == "Current Values"]
 
+    # if table found, then grab data and store it
     if len(table_div) == 1:
         current_value_table = table_div[0].find('table')
 
@@ -123,7 +127,8 @@ def thread_scrape_pacer_etf(ticker):
         remaining_buffer = etf_page_tds[5].text.split('/')[1].strip('%')
         downside_before_buffer = etf_page_tds[6].text.split('/')[1].strip('%')
         remaining_outcome_period = int(etf_page_tds[7].text.split(' ')[0])
-    
+
+        # make sure values won't mess up future calculations
         if is_numeric_and_not_zero(remaining_cap) and is_numeric_and_not_zero(remaining_buffer) and is_numeric_and_not_zero(downside_before_buffer) and remaining_outcome_period != 0:
             result = {
                 'remaining_cap': float(remaining_cap) / 100,
@@ -141,7 +146,8 @@ def pacer():
 
     # Set up Chrome options for headless mode
     chrome_options = Options()
-    #chrome_options.headless = True
+    chrome_options.add_argument('ignore-certificate-errors')
+    
 
     # Create a WebDriver instance with headless Chrome
     driver = webdriver.Chrome(options=chrome_options)
@@ -152,17 +158,20 @@ def pacer():
     # allow contents to load
     sleep(2)
     
-    # Get the page source after JavaScript has executed
+    # get the page source after JavaScript has executed
     soup = BeautifulSoup(driver.page_source, "html.parser")
-    driver.close()
+    driver.quit()
 
+    # find main table and grab each etf ticker from it
     table_body = soup.find('tbody', {'id': 'swan-list'})
     main_page_trs = table_body.findAll('tr')
     etf_tickers = [main_page_row.find('th').text for main_page_row in main_page_trs]
 
+    # scrape each etf page indiviually 
     with ThreadPoolExecutor(max_workers=5) as executor:
         results = list(executor.map(thread_scrape_pacer_etf, etf_tickers))
 
+    # store all results
     all_etf_dict = {}
     for result in results:
         if result is not None:
