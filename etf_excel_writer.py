@@ -45,7 +45,7 @@ def excel_writer():
     ns['C1'] = 'Rank'
     ns.column_dimensions['C'].auto_size = True
 
-    ns['D1'] = 'Buffer/Downside'
+    ns['D1'] = 'Downside Before Buffer / Buffer'
     ns.column_dimensions['D'].auto_size = True
 
     ns['E1'] = 'Score'
@@ -53,6 +53,11 @@ def excel_writer():
 
     ns['F1'] = 'Time Factor'
     ns['F2'] = 100
+    ns.column_dimensions['F'].auto_size = True
+
+    ns['G1'] = "Raw Value Factor"
+    ns['G2'] = 2
+    ns.column_dimensions['G'].auto_size = True
 
     total_written = current_cell - 2
 
@@ -60,8 +65,8 @@ def excel_writer():
         ns.cell(i + 2, 1).value = f'=ETFs!E{i+2}/ETFs!G{i+2}' # A column
         ns.cell(i + 2, 2).value = f'=$F$2/ETFs!H{i+2}' # B Column
         ns.cell(i + 2, 3).value = f'=A{i+2}*B{i+2}' # C Column
-        ns.cell(i + 2, 4).value = f'=ETFs!F{i+2}/ETFs!G{i+2}' # D column
-        ns.cell(i + 2, 4).value = f'=ETFs!F{i+2}/ETFs!G{i+2}' # E column
+        ns.cell(i + 2, 4).value = f'=ETFs!G{i+2}/ETFs!F{i+2}' # D column
+        #ns.cell(i + 2, 4).value = f'=ETFs!F{i+2}/ETFs!G{i+2}' # E column
         ns.cell(i + 2, 5).value = f'=C{i+2}+D{i+2}'
 
     
