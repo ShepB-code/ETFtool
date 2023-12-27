@@ -39,14 +39,26 @@ def first_trust():
     })
 
     driver = webdriver.Chrome(options=chrome_options)
-    driver_two = webdriver.Chrome(options=chrome_options)
+    #driver_two = webdriver.Chrome(options=chrome_options)
 
+    # open up first page
     driver.get(etf_url)
-    driver_two.get(etf_target_outcomes_url)
 
-    # find excel element and download excel
+    # open up new tab and switch to it
+    driver.execute_script("window.open('', '_blank');")
+    driver.switch_to.window(driver.window_handles[1])
+
+    # open up second page
+    driver.get(etf_target_outcomes_url)
+
+    # click on element in second tab
+    WebDriverWait(driver, 20).until(EC.element_to_be_clickable((By.ID, "ContentPlaceHolder1_TargetOutcomeBasicsList_lnkDownloadToExcel"))).click()
+
+    # switch back to first tab
+    driver.switch_to.window(driver.window_handles[0])
+    
+    # click on element in first tab
     WebDriverWait(driver, 20).until(EC.element_to_be_clickable((By.ID, "ContentPlaceHolder1_targetoutcomeretail_lnkDownloadToExcel"))).click()
-    WebDriverWait(driver_two, 20).until(EC.element_to_be_clickable((By.ID, "ContentPlaceHolder1_TargetOutcomeBasicsList_lnkDownloadToExcel"))).click()
 
     # wait for file to download
     while not os.path.exists(f'{download_directory}/{main_excel_name}') or not os.path.exists(f'{download_directory}/{target_outcomes_excel_name}'):
@@ -54,7 +66,6 @@ def first_trust():
         sleep(1)
 
     driver.quit()
-    driver_two.quit()
 
     df = pd.read_excel(main_excel_name, skiprows=2)
     df_target_outcomes = pd.read_excel(target_outcomes_excel_name, skiprows=2)
@@ -260,11 +271,11 @@ def scraper_main():
     first_trust_dict = first_trust()
     all_etfs_dict["First Trust"] = first_trust_dict
 
-    innovator_dict = innovator()
-    all_etfs_dict["Innovator"] = innovator_dict
+    # innovator_dict = innovator()
+    # all_etfs_dict["Innovator"] = innovator_dict
 
-    pacer_dict = pacer()
-    all_etfs_dict["Pacer"] = pacer_dict
+    # pacer_dict = pacer()
+    # all_etfs_dict["Pacer"] = pacer_dict
 
 
     with open("etf_data.json", 'w') as json_file:
