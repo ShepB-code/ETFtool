@@ -91,16 +91,12 @@ def first_trust():
         remaining_outcome_period = row['Remaining Outcome Period (days)']
         #starting_cap = row['Starting Cap'].strip('%')
     
-        print(row)
         if is_numeric_and_not_zero(remaining_cap) and is_numeric_and_not_zero(remaining_buffer) and is_numeric_and_not_zero(downside_before_buffer) and is_numeric_and_not_zero(remaining_outcome_period):
             all_etf_dict[ticker] = {}
             all_etf_dict[ticker]['remaining_cap'] = remaining_cap
             all_etf_dict[ticker]['remaining_buffer'] = remaining_buffer
             all_etf_dict[ticker]['downside_before_buffer'] = downside_before_buffer
             all_etf_dict[ticker]['remaining_outcome_period'] = int(remaining_outcome_period)
-            #all_etf_dict[ticker]['starting_cap'] = float(starting_cap) / 100
-        else:
-            print("Skipped Row")
 
     # process target outcomes dataframe
     for index, row in df_target_outcomes.iterrows():
@@ -110,8 +106,6 @@ def first_trust():
 
         if is_numeric_and_not_zero(starting_cap):
             all_etf_dict[ticker]['starting_cap'] = starting_cap
-        else:
-            print("Skipped row")
 
     print("Finished...")
     return all_etf_dict 
@@ -271,11 +265,11 @@ def scraper_main():
     first_trust_dict = first_trust()
     all_etfs_dict["First Trust"] = first_trust_dict
 
-    # innovator_dict = innovator()
-    # all_etfs_dict["Innovator"] = innovator_dict
+    innovator_dict = innovator()
+    all_etfs_dict["Innovator"] = innovator_dict
 
-    # pacer_dict = pacer()
-    # all_etfs_dict["Pacer"] = pacer_dict
+    pacer_dict = pacer()
+    all_etfs_dict["Pacer"] = pacer_dict
 
 
     with open("etf_data.json", 'w') as json_file:
