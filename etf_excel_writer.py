@@ -66,7 +66,7 @@ def excel_writer():
     ns['A1'] = 'Risk/Reward'
     ns['B1'] = 'Period/Time Factor'
     ns['C1'] = 'Rank'
-    ns['D1'] = 'Buffer/Downside'
+    ns['D1'] = 'Downside/Buffer'
     ns['E1'] = 'Score'
 
     ns['F1'] = 'Time Factor'
@@ -78,8 +78,8 @@ def excel_writer():
         ns.cell(i + 2, 1).value = f'=ETFs!E{i+2}/ETFs!G{i+2}' # A column
         ns.cell(i + 2, 2).value = f'=$F$2/ETFs!H{i+2}' # B Column
         ns.cell(i + 2, 3).value = f'=A{i+2}*B{i+2}' # C Column
-        ns.cell(i + 2, 4).value = f'=ETFs!F{i+2}/ETFs!G{i+2}' # D column
-        ns.cell(i + 2, 5).value = f'=C{i+2}+D{i+2}' # E Column
+        ns.cell(i + 2, 4).value = f'=ETFs!G{i+2}/ETFs!F{i+2}' # D column
+        ns.cell(i + 2, 5).value = f'=C{i+2}+D{i+2}+ETFs!P{i+2}' # E Column
 
 
     
@@ -94,7 +94,6 @@ def excel_writer():
         resize_columns(wb[sheet])
         format_percentages(wb[sheet])
 
-    
     wb.save(filename)
     wb.close()
 
@@ -109,7 +108,7 @@ def as_text(value):
 def resize_columns(worksheet):
     for column_cells in worksheet.columns:
         length = max(len(as_text(cell.value)) for cell in column_cells)
-        worksheet.column_dimensions[column_cells[0].column_letter].width = length
+        worksheet.column_dimensions[column_cells[0].column_letter].width = length + 2
 
 def format_percentages(worksheet):
     header_row = worksheet[1]
