@@ -16,7 +16,11 @@ def excel_writer():
     ws['F1'] = 'Remaining Buffer'
     ws['G1'] = 'Downside Before Buffer'
     ws['H1'] = 'Remaining Outcome Period'
-
+    ws['I1'] = 'Starting Cap'
+    ws['J1'] = 'Cap Used'
+    ws['K1'] = 'Percentage Used'
+    ws['L1'] = 'Remaining Percentage'
+ 
     # get json
     with open('etf_data.json', 'r') as json_file: 
         etf_data = json.load(json_file)
@@ -31,7 +35,13 @@ def excel_writer():
                 ws.cell(current_cell, 6).value = values['remaining_buffer']
                 ws.cell(current_cell, 7).value = values['downside_before_buffer']
                 ws.cell(current_cell, 8).value = values['remaining_outcome_period']
+                ws.cell(current_cell, 9).value = values['starting_cap']
+                ws.cell(current_cell, 10).value = f'=I{current_cell} - E{current_cell}'
+                ws.cell(current_cell, 11).value = f'=J{current_cell}/I{current_cell}'
+                ws.cell(current_cell, 12).value = f'=1-K{current_cell}'
+
                 current_cell += 1
+    ws.column_dimensions['H'].bestFit = True
 
     # write to Calculations Sheet
     ns = wb.create_sheet(title='Calc')
@@ -66,9 +76,14 @@ def excel_writer():
         ns.cell(i + 2, 2).value = f'=$F$2/ETFs!H{i+2}' # B Column
         ns.cell(i + 2, 3).value = f'=A{i+2}*B{i+2}' # C Column
         ns.cell(i + 2, 4).value = f'=ETFs!G{i+2}/ETFs!F{i+2}' # D column
-        #ns.cell(i + 2, 4).value = f'=ETFs!F{i+2}/ETFs!G{i+2}' # E column
         ns.cell(i + 2, 5).value = f'=C{i+2}+D{i+2}'
 
+    # cap_used % = starting cap - remaining cap
+    # percentage_used = cap_used/starting_cap
+    # remaining_percentage = 100% - %used_up
+
+    # one_day_potential_return = remaining_perecentage / remaining_days
+    # 
     
     # write score ranking equations in ETF sheet
     for i in range(total_written):
