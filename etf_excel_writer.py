@@ -136,6 +136,7 @@ def excel_writer():
 
 
 def generate_calc_list(etf_data):
+    # list will store all etfs and their appropriate calculations
     calc_list = []
 
     for provider, etfs in etf_data.items():
