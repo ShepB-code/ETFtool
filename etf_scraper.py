@@ -1,11 +1,15 @@
+import os
 from concurrent.futures import ThreadPoolExecutor
 from bs4 import BeautifulSoup
 import requests
 import json
 from selenium import webdriver
+from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 from time import sleep
-
+import pandas as pd
 
 def is_numeric_and_not_zero(num):
     try:
@@ -17,88 +21,155 @@ def is_numeric_and_not_zero(num):
 
 def first_trust():
     print("Scraping First Trust ETFs...")
+
+    # define needed etf endpoints
     etf_url = "https://www.ftportfolios.com/Retail/etf/targetoutcomefundlist.aspx"
-    headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-    }
+    etf_target_outcomes_url = "https://www.ftportfolios.com/Retail/etf/targetoutcomebasicslist.aspx"
+    main_excel_name = "TargetOutcomeFundList.xlsx"
+    target_outcomes_excel_name = "TargetOutcomeStartingCapsAndBuffers.xlsx"
+    
+    download_directory = os.getcwd()
 
-    page = requests.get(etf_url, headers=headers)    
-    soup = BeautifulSoup(page.content, "html.parser")
+    chrome_options = Options()
+    chrome_options.add_experimental_option("prefs", {
+        "download.default_directory": download_directory,
+        "download.prompt_for_download": False,
+        "download.directory_upgrade": True,
+        "safebrowsing.enabled": True
+    })
 
-    # grab main table
-    table1 = soup.find('table', {'id': 'Table1'})
+    driver = webdriver.Chrome(options=chrome_options)
+    #driver_two = webdriver.Chrome(options=chrome_options)
 
-    # grab ticker table within main table
-    ticker_table = table1.find('table', {'class': 'searchResults small'})
+    # open up first page
+    driver.get(etf_url)
 
-    # get rows
-    ticker_table_rows = ticker_table.findAll('tr')
+    # open up new tab and switch to it
+    driver.execute_script("window.open('', '_blank');")
+    driver.switch_to.window(driver.window_handles[1])
 
-    # gather data, cleanse it, and put it into a json
+    # open up second page
+    driver.get(etf_target_outcomes_url)
+
+    # click on element in second tab
+    WebDriverWait(driver, 20).until(EC.element_to_be_clickable((By.ID, "ContentPlaceHolder1_TargetOutcomeBasicsList_lnkDownloadToExcel"))).click()
+
+    # switch back to first tab
+    driver.switch_to.window(driver.window_handles[0])
+    
+    # click on element in first tab
+    WebDriverWait(driver, 20).until(EC.element_to_be_clickable((By.ID, "ContentPlaceHolder1_targetoutcomeretail_lnkDownloadToExcel"))).click()
+
+    # wait for file to download
+    while not os.path.exists(f'{download_directory}/{main_excel_name}') or not os.path.exists(f'{download_directory}/{target_outcomes_excel_name}'):
+        print("Waiting for file to download...")
+        sleep(1)
+
+    driver.quit()
+
+    df = pd.read_excel(main_excel_name, skiprows=2)
+    df_target_outcomes = pd.read_excel(target_outcomes_excel_name, skiprows=2)
+
+    # last index has text, not data
+    df = df.drop(df.index[-1])
+    df_target_outcomes = df_target_outcomes.drop(df_target_outcomes.index[-1])
+
+    # delete excel files
+    os.remove(f'{download_directory}/{main_excel_name}')
+    os.remove(f'{download_directory}/{target_outcomes_excel_name}')
+
+
+    # process main data frame 
     all_etf_dict = {}
-    for i, row in enumerate(ticker_table_rows):
-        
-        td = row.findAll('td')
-        
-        if len(td) == 0: continue # skip header row
+    for index, row in df.iterrows():
+        ticker = row['Ticker'].upper()
 
-        # grab ticker, remaining cap, remaining buffer, downside before buffer, remaining outcome period
-
-        ticker = td[0].find('span').text
-        remaining_cap = td[6].find('span').text.strip('%')
-        remaining_buffer = td[7].find('span').text.strip('%')
-        downside_before_buffer = td[8].find('span').text.strip('%')
-        remaining_outcome_period = int(td[9].text.split(' ')[0])
-
-        if is_numeric_and_not_zero(remaining_cap) and is_numeric_and_not_zero(remaining_buffer) and is_numeric_and_not_zero(downside_before_buffer) and remaining_outcome_period != 0:
+        # values come as numbers in this excel document
+        remaining_cap = row['Remaining Cap Net']
+        remaining_buffer = row['Remaining Buffer Net']
+        downside_before_buffer = row['Downside Before Buffer Net']
+        remaining_outcome_period = row['Remaining Outcome Period (days)']
+        #starting_cap = row['Starting Cap'].strip('%')
+    
+        if is_numeric_and_not_zero(remaining_cap) and is_numeric_and_not_zero(remaining_buffer) and is_numeric_and_not_zero(downside_before_buffer) and is_numeric_and_not_zero(remaining_outcome_period):
             all_etf_dict[ticker] = {}
-            all_etf_dict[ticker]['remaining_cap'] = float(remaining_cap) / 100 # convert to percent
-            all_etf_dict[ticker]['remaining_buffer'] = float(remaining_buffer) / 100 
-            all_etf_dict[ticker]['downside_before_buffer'] = float(downside_before_buffer) / 100
-            all_etf_dict[ticker]['remaining_outcome_period'] = remaining_outcome_period
+            all_etf_dict[ticker]['remaining_cap'] = remaining_cap
+            all_etf_dict[ticker]['remaining_buffer'] = remaining_buffer
+            all_etf_dict[ticker]['downside_before_buffer'] = downside_before_buffer
+            all_etf_dict[ticker]['remaining_outcome_period'] = int(remaining_outcome_period)
+
+    # process target outcomes dataframe
+    for index, row in df_target_outcomes.iterrows():
+        ticker = row['Ticker'].upper()
+
+        starting_cap = row['Starting Cap']
+
+        if is_numeric_and_not_zero(starting_cap):
+            all_etf_dict[ticker]['starting_cap'] = starting_cap
 
     print("Finished...")
     return all_etf_dict 
 
 def innovator():
     print("Scraping Innovator ETFs...")
+
+    # define url and any downloadable file names
     etf_url = "https://www.innovatoretfs.com/define/etfs/#allproducts"
-    headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-    }
+    csv_name = "DefinedOutcomeProductTable.csv"
 
-    page = requests.get(etf_url, headers=headers)    
-    soup = BeautifulSoup(page.content, "html.parser")
+    # download directory
+    download_directory = os.getcwd()
 
-    # find etf table
-    table = soup.find('table', {'class': 'DOGrid'})
+    # chrome options
+    chrome_options = Options()
+    chrome_options.add_experimental_option("prefs", {
+        "download.default_directory": download_directory,
+        "download.prompt_for_download": False,
+        "download.directory_upgrade": True,
+        "safebrowsing.enabled": True
+    })
+    
+    driver = webdriver.Chrome(options=chrome_options)
+    driver.get(etf_url)
 
-    ticker_table_rows = table.findAll('tr')
+    # find csv element and download csv
+    WebDriverWait(driver, 20).until(EC.element_to_be_clickable((By.ID, "BodyPlaceHolder_DOSGrid1_ExportLinkButton"))).click()
 
+    # wait for file to download
+    while not os.path.exists(f'{download_directory}/{csv_name}'):
+        print("Waiting for file to download...")
+        sleep(1)
+
+    # quit chrome
+    driver.quit()
+
+    # load csv into a pandas dataframe and skip first row (date)
+    df = pd.read_csv(csv_name, skiprows=1)
+    
+    os.remove(f'{download_directory}/{csv_name}')
+
+    print(f"Processing: {csv_name}")
     all_etf_dict = {}
-    for i, row in enumerate(ticker_table_rows):
+    for index, row in df.iterrows():
+        ticker = row['Ticker'].upper()
 
-        td = row.findAll('td')
+        remaining_cap = row['Remaining Cap'].strip('%')
+        remaining_buffer = row['Remaining Buffer'].strip('%')
+        downside_before_buffer = row['Downside Before Buffer'].strip('%')
+        remaining_outcome_period = int(row['Remaining Outcome Period (Days)'])
+        starting_cap = row['Starting Cap'].strip('%')
         
-        if len(td) == 0: continue # skip header row
-        
-        # grab ticker, remaining cap, remaining buffer, downside before buffer, remaining outcome period
-
-        ticker = td[0].find('div').text.upper()
-        remaining_cap = td[9].text.strip('%')
-        remaining_buffer = td[10].text.strip('%')
-        downside_before_buffer = td[11].text.strip('%')
-        remaining_outcome_period = int(td[12].text.split(' ')[0])
-
-        if is_numeric_and_not_zero(remaining_cap) and is_numeric_and_not_zero(remaining_buffer) and is_numeric_and_not_zero(downside_before_buffer) and remaining_outcome_period != 0:
+        if is_numeric_and_not_zero(remaining_cap) and is_numeric_and_not_zero(remaining_buffer) and is_numeric_and_not_zero(downside_before_buffer) and is_numeric_and_not_zero(starting_cap) and remaining_outcome_period != 0:
             all_etf_dict[ticker] = {}
             all_etf_dict[ticker]['remaining_cap'] = float(remaining_cap) / 100 # convert to percent
             all_etf_dict[ticker]['remaining_buffer'] = float(remaining_buffer) / 100 
             all_etf_dict[ticker]['downside_before_buffer'] = float(downside_before_buffer) / 100
             all_etf_dict[ticker]['remaining_outcome_period'] = remaining_outcome_period
-   
-    print("Finished...")
-    return all_etf_dict
+            all_etf_dict[ticker]['starting_cap'] = float(starting_cap) / 100
+
+    return all_etf_dict 
+
+
 
 def thread_scrape_pacer_etf(ticker):
     print(f'Scraping: {ticker}')
@@ -115,26 +186,32 @@ def thread_scrape_pacer_etf(ticker):
 
     # find current value table for specified ETF
     divs = soup.findAll('div', {'class': 'panel panel-default'})
-    table_div = [div for div in divs if div.find('div', {'class': 'panel-header'}) != None and div.find('div', {'class': 'panel-header'}).find('h2').text == "Current Values"]
+    current_value_div = [div for div in divs if div.find('div', {'class': 'panel-header'}) != None and div.find('div', {'class': 'panel-header'}).find('h2').text == "Current Values"]
+    outcome_period_div = [div for div in divs if div.find('div', {'class': 'panel-header'}) != None and div.find('div', {'class': 'panel-header'}).find('h2').text == "Outcome Period Values"]
 
     # if table found, then grab data and store it
-    if len(table_div) == 1:
-        current_value_table = table_div[0].find('table')
+    if len(current_value_div) == 1 and len(outcome_period_div) == 1:
+        current_value_table = current_value_div[0].find('table')
+        outcome_period_table = outcome_period_div[0].find('table')
 
-        etf_page_tds = current_value_table.findAll('td')
+        current_value_tds = current_value_table.findAll('td')
+        outcome_period_tds = outcome_period_table.findAll('td')
 
-        remaining_cap = etf_page_tds[4].text.split('/')[1].strip('%')
-        remaining_buffer = etf_page_tds[5].text.split('/')[1].strip('%')
-        downside_before_buffer = etf_page_tds[6].text.split('/')[1].strip('%')
-        remaining_outcome_period = int(etf_page_tds[7].text.split(' ')[0])
+
+        remaining_cap = current_value_tds[4].text.split('/')[1].strip('%')
+        remaining_buffer = current_value_tds[5].text.split('/')[1].strip('%')
+        downside_before_buffer = current_value_tds[6].text.split('/')[1].strip('%')
+        remaining_outcome_period = int(current_value_tds[7].text.split(' ')[0])
+        starting_cap = outcome_period_tds[3].text.strip('%')
 
         # make sure values won't mess up future calculations
-        if is_numeric_and_not_zero(remaining_cap) and is_numeric_and_not_zero(remaining_buffer) and is_numeric_and_not_zero(downside_before_buffer) and remaining_outcome_period != 0:
+        if is_numeric_and_not_zero(remaining_cap) and is_numeric_and_not_zero(remaining_buffer) and is_numeric_and_not_zero(downside_before_buffer) and is_numeric_and_not_zero(starting_cap) and remaining_outcome_period != 0:
             result = {
                 'remaining_cap': float(remaining_cap) / 100,
                 'remaining_buffer': float(remaining_buffer) / 100,
                 'downside_before_buffer': float(downside_before_buffer) / 100,
-                'remaining_outcome_period': remaining_outcome_period
+                'remaining_outcome_period': remaining_outcome_period,
+                'starting_cap': float(starting_cap) / 100
             }
             return ticker, result
     return None

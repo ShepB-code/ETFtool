@@ -1,5 +1,4 @@
-.venv/
-chrome-win64/
-*.json
-*.xlsx
 __pycache__/
+.venv/
+*.xlsx
+*.json
