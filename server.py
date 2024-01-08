@@ -17,6 +17,10 @@ def get_etf_data():
     except Exception as e:
         return str(e), 500
 
+@app.route('/')
+def home():
+    return 'Ready to go!'
+
 if __name__ == "__main__":
     app.run(debug=True)
 
