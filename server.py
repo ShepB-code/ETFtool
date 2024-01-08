@@ -1,6 +1,8 @@
 from flask import Flask, send_file
 from etf_scraper import scraper_main
 from etf_excel_writer import excel_writer
+import os
+
 app = Flask(__name__)
 
 @app.route('/etf_data', methods=['GET'])
@@ -22,5 +24,6 @@ def home():
     return 'Ready to go!'
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host='0.0.0.0', port=port, debug=True)
 
