@@ -6,10 +6,13 @@ import json
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from time import sleep
 import pandas as pd
+
+chromedriver_path = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'chromedriver.exe')
 
 def is_numeric_and_not_zero(num):
     try:
@@ -37,8 +40,9 @@ def first_trust():
         "download.directory_upgrade": True,
         "safebrowsing.enabled": True
     })
+    service = Service(executable_path=chromedriver_path)
 
-    driver = webdriver.Chrome(options=chrome_options)
+    driver = webdriver.Chrome(service=service, options=chrome_options)
     #driver_two = webdriver.Chrome(options=chrome_options)
 
     # open up first page
@@ -128,8 +132,10 @@ def innovator():
         "download.directory_upgrade": True,
         "safebrowsing.enabled": True
     })
+    service = Service(executable_path=chromedriver_path)
+
     
-    driver = webdriver.Chrome(options=chrome_options)
+    driver = webdriver.Chrome(service=service, options=chrome_options)
     driver.get(etf_url)
 
     # find csv element and download csv
@@ -177,8 +183,9 @@ def thread_scrape_pacer_etf(ticker):
 
     chrome_options = Options()
     chrome_options.add_argument('ignore-certificate-errors')
+    service = Service(executable_path=chromedriver_path)
 
-    driver = webdriver.Chrome(options=chrome_options)
+    driver = webdriver.Chrome(service=service, options=chrome_options)
     driver.get(etf_url)
 
     soup = BeautifulSoup(driver.page_source, "html.parser")
@@ -224,10 +231,11 @@ def pacer():
     # Set up Chrome options for headless mode
     chrome_options = Options()
     chrome_options.add_argument('ignore-certificate-errors')
-    
+    service = Service(executable_path=chromedriver_path)
+
 
     # Create a WebDriver instance with headless Chrome
-    driver = webdriver.Chrome(options=chrome_options)
+    driver = webdriver.Chrome(service=service, options=chrome_options)
 
     # Load the page
     driver.get(etf_url)
