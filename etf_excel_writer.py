@@ -1,5 +1,6 @@
 import json
 import openpyxl as xl
+from openpyxl.styles.fonts import Font
 from datetime import datetime
 
 RAW_FACTOR = 2
@@ -98,20 +99,11 @@ def excel_writer():
 
 
         # SHOWN BY OVERALL SCORE
-        summary_sheet['A1'] = "Overall Ranking"
+        next_row_start = add_summary_rank(summary_sheet, 'score', calc_list, 1, 10)
+        next_row_start = add_summary_rank(summary_sheet, 'risk/reward', calc_list, next_row_start, 10)
+        next_row_start = add_summary_rank(summary_sheet, 'period/time_factor', calc_list, next_row_start, 10)
+        next_row_start = add_summary_rank(summary_sheet, 'downside/buffer', calc_list, next_row_start, 10)
 
-        # headers 
-        summary_sheet['A3'] = 'Rank'
-        summary_sheet['B3'] = 'Ticker'
-        summary_sheet['C3'] = 'Score'
-
-        # 1 row of buffer between each
-        start_row = 4
-        calc_list_by_score = sort_calc_list(calc_list)
-        for i in range(10):
-            summary_sheet.cell(start_row + i, 1).value = i + 1
-            summary_sheet.cell(start_row + i, 2).value = calc_list_by_score[i]['ticker'] # ticker
-            summary_sheet.cell(start_row + i, 3).value = calc_list_by_score[i]['score'] # score
 
 
 
@@ -134,6 +126,40 @@ def excel_writer():
     return filename
 
 
+
+def add_summary_rank(summary_sheet, summary_key, calc_list, start_row, num_to_display):
+    # headers for this sort
+    summary_sheet[f'A{start_row}'] = f'{summary_key}'
+    start_row += 1
+
+    summary_sheet[f'A{start_row}'] = 'Overall Rank'
+    summary_sheet[f'B{start_row}'] = 'Ticker'
+    summary_sheet[f'C{start_row}'] = 'Score'
+    summary_sheet[f'D{start_row}'] = 'Risk/Reward'
+    summary_sheet[f'E{start_row}'] = 'Period/Time Factor'
+
+    summary_column_nums = {'score': 3, 'risk/reward': 4, 'period/time_factor': 5, 'downside/buffer': 6}
+    start_row += 1
+
+    # special font to signify what the summary is sorted by
+    summary_column_font = Font(name='Calibri', b=True)
+
+    sorted_calc_list = sort_calc_list(calc_list, sort_key=summary_key)
+    for i in range(num_to_display):
+        summary_sheet.cell(start_row, 1).value = i + 1 # rank for this sort
+        summary_sheet.cell(start_row, 2).value = sorted_calc_list[i]['ticker']
+        summary_sheet.cell(start_row, 3).value = sorted_calc_list[i]['score'] 
+        summary_sheet.cell(start_row, 4).value = sorted_calc_list[i]['risk/reward']
+        summary_sheet.cell(start_row, 5).value = sorted_calc_list[i]['period/time_factor']
+        summary_sheet.cell(start_row, 6).value = sorted_calc_list[i]['downside/buffer']
+
+        summary_sheet.cell(start_row, summary_column_nums[summary_key]).font = summary_column_font
+
+        start_row += 1
+    
+    # give the next possible row a different summary could start on
+    return start_row + 2
+    
 
 def generate_calc_list(etf_data):
     # list will store all etfs and their appropriate calculations
