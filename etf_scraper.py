@@ -19,6 +19,35 @@ def is_numeric_and_not_zero(num):
     except ValueError:
         return False
 
+def set_chrome_options(headless = True) -> Options:
+    """Sets chrome options for Selenium.
+    Chrome options for headless browser is enabled.
+    """
+    chrome_options = Options()
+    if headless:
+        chrome_options.add_argument("--headless")
+    chrome_options.add_argument("--ignore-certificate-errors")
+    chrome_options.add_argument("--no-sandbox")
+    chrome_options.add_argument("--disable-dev-shm-usage")
+    chrome_prefs = {}
+    chrome_options.experimental_options["prefs"] = chrome_prefs
+    chrome_prefs["profile.default_content_settings"] = {"images": 2}
+
+    download_directory = os.getcwd()
+    chrome_prefs["download.default_directory"] = download_directory
+    chrome_prefs["download.prompt_for_download"] = False
+    chrome_prefs["download.directory_upgrade"] = True
+    chrome_prefs["safebrowsing.enabled"] = True
+   
+    return chrome_options
+
+def set_undetected_chrome_options():
+    chrome_options = uc.ChromeOptions()
+    chrome_options.add_argument("--headless")
+    chrome_options.add_argument("--no-sandbox")
+    chrome_options.add_argument("--disable-dev-shm-usage")
+    
+    return chrome_options
 
 def first_trust():
     print("Scraping First Trust ETFs...")
@@ -29,19 +58,8 @@ def first_trust():
     main_excel_name = "TargetOutcomeFundList.xlsx"
     target_outcomes_excel_name = "TargetOutcomeStartingCapsAndBuffers.xlsx"
     
-    download_directory = os.getcwd()
 
-    chrome_options = Options()
-    chrome_options.add_experimental_option("prefs", {
-        "download.default_directory": download_directory,
-        "download.prompt_for_download": False,
-        "download.directory_upgrade": True,
-        "safebrowsing.enabled": True
-    })
-    chrome_options.add_argument('--headless')
-
-
-    driver = webdriver.Chrome(options=chrome_options)
+    driver = webdriver.Chrome(options=set_chrome_options())
 
     # open up first page
     driver.get(etf_url)
@@ -61,7 +79,8 @@ def first_trust():
     
     # click on element in first tab
     WebDriverWait(driver, 20).until(EC.element_to_be_clickable((By.ID, "ContentPlaceHolder1_targetoutcomeretail_lnkDownloadToExcel"))).click()
-
+    
+    download_directory = os.getcwd()
     # wait for file to download
     while not os.path.exists(f'{download_directory}/{main_excel_name}') or not os.path.exists(f'{download_directory}/{target_outcomes_excel_name}'):
         print("Waiting for file to download...")
@@ -119,25 +138,13 @@ def innovator():
     etf_url = "https://www.innovatoretfs.com/define/etfs/#allproducts"
     csv_name = "DefinedOutcomeProductTable.csv"
 
-    # download directory
-    download_directory = os.getcwd()
-
-    # chrome options
-    chrome_options = Options()
-    chrome_options.add_experimental_option("prefs", {
-        "download.default_directory": download_directory,
-        "download.prompt_for_download": False,
-        "download.directory_upgrade": True,
-        "safebrowsing.enabled": True
-    })
-    chrome_options.add_argument('--headless')
-
-    driver = webdriver.Chrome(options=chrome_options)
+    driver = webdriver.Chrome(options=set_chrome_options())
     driver.get(etf_url)
 
     # find csv element and download csv
     WebDriverWait(driver, 20).until(EC.element_to_be_clickable((By.ID, "BodyPlaceHolder_DOSGrid1_ExportLinkButton"))).click()
 
+    download_directory = os.getcwd()
     # wait for file to download
     while not os.path.exists(f'{download_directory}/{csv_name}'):
         print("Waiting for file to download...")
@@ -178,13 +185,11 @@ def thread_scrape_pacer_etf(ticker):
     print(f'Scraping: {ticker}')
     etf_url = f'https://www.paceretfs.com/products/structured-outcome-strategies/{ticker}'
 
-    chrome_options = Options()
-    chrome_options.add_argument('--ignore-certificate-errors')
-    chrome_options.add_argument('--headless')
 
-
-    driver = webdriver.Chrome(options=chrome_options)
+    driver = webdriver.Chrome(options=set_chrome_options(headless=False))
     driver.get(etf_url)
+
+    #WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.CLASS_NAME, 'panel panel-default')))
 
     soup = BeautifulSoup(driver.page_source, "html.parser")
     driver.quit()
@@ -226,21 +231,16 @@ def pacer():
     print("Scraping Pacer ETFs")
     etf_url = "https://www.paceretfs.com/products/structured-outcome-strategies"
 
-    # Set up Chrome options for headless mode
-    chrome_options = Options()
-    chrome_options.add_argument('--ignore-certificate-errors')    
-    chrome_options.add_argument('--headless')
-
-
     # Create a WebDriver instance with headless Chrome
-    driver = webdriver.Chrome(options=chrome_options)
+
+    driver = webdriver.Chrome(options=set_chrome_options(headless=False))
 
     # Load the page
     driver.get(etf_url)
-
+ 
     # allow contents to load
-    sleep(2)
-    
+    WebDriverWait(driver, 20).until(EC.presence_of_element_located((By.ID, 'swan-list')))
+
     # get the page source after JavaScript has executed
     soup = BeautifulSoup(driver.page_source, "html.parser")
     driver.quit()
@@ -274,8 +274,8 @@ def scraper_main():
     innovator_dict = innovator()
     all_etfs_dict["Innovator"] = innovator_dict
 
-    pacer_dict = pacer()
-    all_etfs_dict["Pacer"] = pacer_dict
+    # pacer_dict = pacer()
+    # all_etfs_dict["Pacer"] = pacer_dict
 
 
     with open("etf_data.json", 'w') as json_file:

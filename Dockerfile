@@ -1,27 +1,25 @@
 # Use an official Python runtime as a parent image
-FROM --platform=linux/amd64 python:3.9-buster
+FROM python:3.8
 
 # Set the working directory in the container
 WORKDIR /usr/src/app
 
 # Copy the current directory contents into the container at /usr/src/app
 COPY . .
+RUN rm -rf .gitignore *.xlsx *.json .venv __pycache__
 
-# Install any needed packages specified in requirements.txt
-RUN pip install --no-cache-dir -r requirements.txt
+# install google chrome
+RUN wget -q -O - https://dl-ssl.google.com/linux/linux_signing_key.pub | apt-key add -
+RUN sh -c 'echo "deb [arch=amd64] http://dl.google.com/linux/chrome/deb/ stable main" >> /etc/apt/sources.list.d/google-chrome.list'
+RUN apt-get -y update
+RUN apt-get install -y google-chrome-stable
 
-# Install Chrome
-RUN mkdir /usr/bin/chrome \
-    && wget -P ./ https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb \ 
-    && dpkg -x ./google-chrome-stable_current_amd64.deb /usr/bin/chrome \
-    && rm ./google-chrome-stable_current_amd64.deb
-
-# SET GOOGLE CHROME PATH
-ENV PATH="${PATH}:/usr/bin/chrome/opt/google/chrome"
-
-
-# Set display port as an environment variable
+# set display port to avoid crash
 ENV DISPLAY=:99
+
+RUN pip install --upgrade pip
+
+RUN pip install -r requirements.txt
 
 # Run the application
 CMD ["python", "./server.py"]
