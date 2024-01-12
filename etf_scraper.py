@@ -38,6 +38,8 @@ def first_trust():
         "download.directory_upgrade": True,
         "safebrowsing.enabled": True
     })
+    chrome_options.add_argument('--headless')
+
 
     driver = webdriver.Chrome(options=chrome_options)
 
@@ -128,6 +130,7 @@ def innovator():
         "download.directory_upgrade": True,
         "safebrowsing.enabled": True
     })
+    chrome_options.add_argument('--headless')
 
     driver = webdriver.Chrome(options=chrome_options)
     driver.get(etf_url)
@@ -176,7 +179,8 @@ def thread_scrape_pacer_etf(ticker):
     etf_url = f'https://www.paceretfs.com/products/structured-outcome-strategies/{ticker}'
 
     chrome_options = Options()
-    chrome_options.add_argument('ignore-certificate-errors')
+    chrome_options.add_argument('--ignore-certificate-errors')
+    chrome_options.add_argument('--headless')
 
 
     driver = webdriver.Chrome(options=chrome_options)
@@ -224,7 +228,8 @@ def pacer():
 
     # Set up Chrome options for headless mode
     chrome_options = Options()
-    chrome_options.add_argument('ignore-certificate-errors')    
+    chrome_options.add_argument('--ignore-certificate-errors')    
+    chrome_options.add_argument('--headless')
 
 
     # Create a WebDriver instance with headless Chrome
