@@ -17,6 +17,7 @@ RUN apt-get install -y google-chrome-stable
 # set display port to avoid crash
 ENV DISPLAY=:99
 
+# install all python packages
 RUN pip install --upgrade pip
 
 RUN pip install -r requirements.txt

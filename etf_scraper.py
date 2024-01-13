@@ -6,9 +6,9 @@ import json
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from selenium_stealth import stealth
 from time import sleep
 import pandas as pd
 
@@ -19,16 +19,16 @@ def is_numeric_and_not_zero(num):
     except ValueError:
         return False
 
-def set_chrome_options(headless = True) -> Options:
+def set_chrome_options() -> Options:
     """Sets chrome options for Selenium.
     Chrome options for headless browser is enabled.
     """
     chrome_options = Options()
-    if headless:
-        chrome_options.add_argument("--headless")
+    chrome_options.add_argument("--headless")
     chrome_options.add_argument("--ignore-certificate-errors")
     chrome_options.add_argument("--no-sandbox")
     chrome_options.add_argument("--disable-dev-shm-usage")
+
     chrome_prefs = {}
     chrome_options.experimental_options["prefs"] = chrome_prefs
     chrome_prefs["profile.default_content_settings"] = {"images": 2}
@@ -39,14 +39,6 @@ def set_chrome_options(headless = True) -> Options:
     chrome_prefs["download.directory_upgrade"] = True
     chrome_prefs["safebrowsing.enabled"] = True
    
-    return chrome_options
-
-def set_undetected_chrome_options():
-    chrome_options = uc.ChromeOptions()
-    chrome_options.add_argument("--headless")
-    chrome_options.add_argument("--no-sandbox")
-    chrome_options.add_argument("--disable-dev-shm-usage")
-    
     return chrome_options
 
 def first_trust():
@@ -185,8 +177,16 @@ def thread_scrape_pacer_etf(ticker):
     print(f'Scraping: {ticker}')
     etf_url = f'https://www.paceretfs.com/products/structured-outcome-strategies/{ticker}'
 
+    driver = webdriver.Chrome(options=set_chrome_options())
+    stealth(driver,
+        languages=["en-US", "en"],
+        vendor="Google Inc.",
+        platform="Win32",
+        webgl_vendor="Intel Inc.",
+        renderer="Intel Iris OpenGL Engine",
+        fix_hairline=True,
+    )
 
-    driver = webdriver.Chrome(options=set_chrome_options(headless=False))
     driver.get(etf_url)
 
     #WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.CLASS_NAME, 'panel panel-default')))
@@ -233,10 +233,20 @@ def pacer():
 
     # Create a WebDriver instance with headless Chrome
 
-    driver = webdriver.Chrome(options=set_chrome_options(headless=False))
+    driver = webdriver.Chrome(options=set_chrome_options())
+
+    stealth(driver,
+        languages=["en-US", "en"],
+        vendor="Google Inc.",
+        platform="Win32",
+        webgl_vendor="Intel Inc.",
+        renderer="Intel Iris OpenGL Engine",
+        fix_hairline=True,
+    )
 
     # Load the page
     driver.get(etf_url)
+    sleep(10)
  
     # allow contents to load
     WebDriverWait(driver, 20).until(EC.presence_of_element_located((By.ID, 'swan-list')))
@@ -274,8 +284,8 @@ def scraper_main():
     innovator_dict = innovator()
     all_etfs_dict["Innovator"] = innovator_dict
 
-    # pacer_dict = pacer()
-    # all_etfs_dict["Pacer"] = pacer_dict
+    pacer_dict = pacer()
+    all_etfs_dict["Pacer"] = pacer_dict
 
 
     with open("etf_data.json", 'w') as json_file:
