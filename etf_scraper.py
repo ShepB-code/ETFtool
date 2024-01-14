@@ -12,6 +12,8 @@ from selenium_stealth import stealth
 from time import sleep
 import pandas as pd
 
+EXCLUSIONS = ['BALT', 'ZALT', 'EALT', 'TJUL']
+
 def is_numeric_and_not_zero(num):
     try:
         fnum = float(num)
@@ -97,6 +99,10 @@ def first_trust():
     for index, row in df.iterrows():
         ticker = row['Ticker'].upper()
 
+        if ticker in EXCLUSIONS:
+            print(f'Excluded: {ticker}')
+            continue
+
         # values come as numbers in this excel document
         remaining_cap = row['Remaining Cap Net']
         remaining_buffer = row['Remaining Buffer Net']
@@ -114,6 +120,11 @@ def first_trust():
     # process target outcomes dataframe
     for index, row in df_target_outcomes.iterrows():
         ticker = row['Ticker'].upper()
+
+        if ticker in EXCLUSIONS:
+            print(f'Excluded: {ticker}')
+            continue
+
 
         starting_cap = row['Starting Cap']
 
@@ -154,6 +165,10 @@ def innovator():
     all_etf_dict = {}
     for index, row in df.iterrows():
         ticker = row['Ticker'].upper()
+        
+        if ticker in EXCLUSIONS:
+            print(f'Excluded: {ticker}')
+            continue 
 
         remaining_cap = row['Remaining Cap'].strip('%')
         remaining_buffer = row['Remaining Buffer'].strip('%')
@@ -174,7 +189,12 @@ def innovator():
 
 
 def thread_scrape_pacer_etf(ticker):
+    if ticker in EXCLUSIONS:
+        print(f'Excluded: {ticker}')
+        return None
+    
     print(f'Scraping: {ticker}')
+
     etf_url = f'https://www.paceretfs.com/products/structured-outcome-strategies/{ticker}'
 
     driver = webdriver.Chrome(options=set_chrome_options())
