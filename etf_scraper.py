@@ -26,7 +26,7 @@ def set_chrome_options() -> Options:
     Chrome options for headless browser is enabled.
     """
     chrome_options = Options()
-    chrome_options.add_argument("--headless")
+    #chrome_options.add_argument("--headless")
     chrome_options.add_argument("--ignore-certificate-errors")
     chrome_options.add_argument("--no-sandbox")
     chrome_options.add_argument("--disable-dev-shm-usage")
@@ -96,6 +96,7 @@ def first_trust():
 
     # process main data frame 
     all_etf_dict = {}
+    skipped_etfs = set()
     for index, row in df.iterrows():
         ticker = row['Ticker'].upper()
 
@@ -116,7 +117,8 @@ def first_trust():
             all_etf_dict[ticker]['remaining_buffer'] = remaining_buffer
             all_etf_dict[ticker]['downside_before_buffer'] = downside_before_buffer
             all_etf_dict[ticker]['remaining_outcome_period'] = int(remaining_outcome_period)
-
+        else:
+            skipped_etfs.add(ticker)
     # process target outcomes dataframe
     for index, row in df_target_outcomes.iterrows():
         ticker = row['Ticker'].upper()
@@ -128,7 +130,7 @@ def first_trust():
 
         starting_cap = row['Starting Cap']
 
-        if is_numeric_and_not_zero(starting_cap):
+        if is_numeric_and_not_zero(starting_cap) and ticker not in skipped_etfs:
             all_etf_dict[ticker]['starting_cap'] = starting_cap
 
     print("Finished...")
