@@ -25,6 +25,6 @@ def home():
     return 'Ready to go!'
 
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host='0.0.0.0', port=port, debug=True)
+    port = int(os.environ.get("PORT", 6969))
+    app.run(port=port, debug=True)
 
