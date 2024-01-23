@@ -3,7 +3,7 @@ pipeline {
     stages {
         stage('Deploy') {
             steps {
-                sh 'echo done'
+                sh 'python ./server.py'
             }
         }
     }
