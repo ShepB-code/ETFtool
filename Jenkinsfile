@@ -6,12 +6,12 @@ pipeline {
     stages {
         stage('Build') { 
             steps { 
-                pip install -r requirements.txt 
+                pip 'install -r requirements.txt'
             }
         }
         stage('Deploy') {
             steps {
-                flask --app server run
+                flask '--app server run'
             }
         }
     }
