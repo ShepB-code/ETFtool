@@ -1,17 +1,9 @@
 pipeline { 
-    agent any 
-    options {
-        skipStagesAfterUnstable()
-    }
+    agent { dockerfile true } 
     stages {
-        stage('Build') { 
-            steps { 
-                sh 'pip install -r requirements.txt'
-            }
-        }
         stage('Deploy') {
             steps {
-                sh 'flask --app server run'
+                sh 'echo done'
             }
         }
     }
