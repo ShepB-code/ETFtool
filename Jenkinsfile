@@ -14,7 +14,7 @@ pipeline {
         stage('Deploy') {
             steps {
                 sh 'docker stop $containerName || true && docker rm -f $containerName || true'
-                sh 'docker run -d --name $containerName $imageName'
+                sh 'docker run -i -t -d -p 7070:7070 --name $containerName $imageName'
             }
         }
     }
