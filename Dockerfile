@@ -18,7 +18,7 @@ RUN apt-get install -y google-chrome-stable
 ENV DISPLAY=:99
 
 # set port
-EXPOSE 6969
+EXPOSE 7070
 
 # install all python packages
 RUN pip install --upgrade pip
