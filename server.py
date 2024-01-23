@@ -2,7 +2,6 @@ from flask import Flask, send_file
 from etf_scraper import scraper_main
 from etf_excel_writer import excel_writer
 import os
-from selenium import webdriver
 
 app = Flask(__name__)
 

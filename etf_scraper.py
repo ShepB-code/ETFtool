@@ -1,7 +1,8 @@
 import os
 from concurrent.futures import ThreadPoolExecutor
 from bs4 import BeautifulSoup
-import requests
+import threading
+import multiprocessing
 import json
 from selenium import webdriver
 from selenium.webdriver.common.by import By
@@ -26,7 +27,7 @@ def set_chrome_options() -> Options:
     Chrome options for headless browser is enabled.
     """
     chrome_options = Options()
-    chrome_options.add_argument("--headless")
+    #chrome_options.add_argument("--headless")
     chrome_options.add_argument("--ignore-certificate-errors")
     chrome_options.add_argument("--no-sandbox")
     chrome_options.add_argument("--disable-dev-shm-usage")
@@ -283,7 +284,7 @@ def pacer():
     etf_tickers = [main_page_row.find('th').text for main_page_row in main_page_trs]
 
     # scrape each etf page indiviually 
-    with ThreadPoolExecutor(max_workers=5) as executor:
+    with ThreadPoolExecutor(max_workers=multiprocessing.cpu_count()) as executor:
         results = list(executor.map(thread_scrape_pacer_etf, etf_tickers))
 
     # store all results
@@ -300,14 +301,21 @@ def pacer():
 def scraper_main():
     all_etfs_dict = {}
 
-    first_trust_dict = first_trust()
-    all_etfs_dict["First Trust"] = first_trust_dict
+    # Define threads for each function
+    first_trust_thread = threading.Thread(target=lambda: all_etfs_dict.update({"First Trust": first_trust()}))
+    innovator_thread = threading.Thread(target=lambda: all_etfs_dict.update({"Innovator": innovator()}))
+    pacer_thread = threading.Thread(target=lambda: all_etfs_dict.update({"Pacer": pacer()}))
 
-    innovator_dict = innovator()
-    all_etfs_dict["Innovator"] = innovator_dict
+    # Start all threads
+    first_trust_thread.start()
+    innovator_thread.start()
+    pacer_thread.start()
 
-    pacer_dict = pacer()
-    all_etfs_dict["Pacer"] = pacer_dict
+    # Wait for all threads to finish
+    first_trust_thread.join()
+    innovator_thread.join()
+    pacer_thread.join()
+
 
 
     with open("etf_data.json", 'w') as json_file:
