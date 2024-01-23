@@ -2,9 +2,12 @@ pipeline {
     agent { dockerfile true } 
     stages {
         stage('Deploy') {
-            steps {
+            environment{
                 imageName=ETFtool:${BUILD_NUMBER}
                 containerName=ETFtool
+            }
+            steps {
+                
 
                 sh 'docker system prune -af'
                 sh 'docker build -t ${imageName}'
