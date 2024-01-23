@@ -26,4 +26,4 @@ RUN pip install --upgrade pip
 RUN pip install -r requirements.txt
 
 # Run the application
-RUN python ./server.py
+CMD ["python", "./server.py"]
