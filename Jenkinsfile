@@ -1,10 +1,10 @@
 pipeline { 
     agent any
+    environment{
+        imageName="""ETFtool:${BUILD_NUMBER}"""
+        containerName='ETFtool'
+    }
     stages {
-        environment{
-                imageName="""ETFtool:${BUILD_NUMBER}"""
-                containerName='ETFtool'
-        }
         stage('Build') {
             steps{
                 sh 'docker system prune -af'
