@@ -3,8 +3,8 @@ pipeline {
     stages {
         stage('Deploy') {
             environment{
-                imageName=ETFtool:${BUILD_NUMBER}
-                containerName=ETFtool
+                imageName="""ETFtool:${BUILD_NUMBER}"""
+                containerName='ETFtool'
             }
             steps {
                 
