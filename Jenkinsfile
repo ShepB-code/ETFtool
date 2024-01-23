@@ -1,7 +1,7 @@
 pipeline { 
     agent any
     environment{
-        imageName="""ETFtool:${BUILD_NUMBER}"""
+        imageName="""etf_tool:${BUILD_NUMBER}"""
         containerName='ETFtool'
     }
     stages {
