@@ -190,6 +190,60 @@ def innovator():
     return all_etf_dict 
 
 
+def allianzim():
+    print("Scraping Allianzim ETFs...")
+
+    # define url and any downloadable file names
+    etf_url = "https://www.allianzim.com/product-table/"
+    csv_name = "Allianz-ETFs.csv"
+
+    driver = webdriver.Chrome(options=set_chrome_options())
+    driver.get(etf_url)
+
+    # find csv element and download csv
+    csv_download_element = WebDriverWait(driver, 20).until(EC.element_to_be_clickable((By.ID, "chart-download")))
+
+    driver.execute_script("arguments[0].scrollIntoView();", csv_download_element)
+    driver.execute_script("arguments[0].click();", csv_download_element)
+
+    download_directory = os.getcwd()
+    # wait for file to download
+    while not os.path.exists(f'{download_directory}/{csv_name}'):
+        print("Waiting for file to download...")
+        sleep(1)
+
+    # quit chrome
+    driver.quit()
+
+    # load csv into a pandas dataframe and skip first row (date)
+    df = pd.read_csv(csv_name)
+    
+    os.remove(f'{download_directory}/{csv_name}')
+
+    print(f"Processing: {csv_name}")
+    all_etf_dict = {}
+    for index, row in df.iterrows():
+        ticker = row['Ticker_Start Date'].upper().split('_')[0]
+        
+        if ticker in EXCLUSIONS:
+            print(f'Excluded: {ticker}')
+            continue 
+
+        remaining_cap = float(row['Starting Cap Net'].strip('%')) - float(row['Current Cap Net'].strip('%'))
+        remaining_buffer = float(row['Starting Buffer Net'].strip('%')) - float(row['Current Buffer Net'].strip('%'))
+        downside_before_buffer = row['Downside Before Buffer Net'].strip('%')
+        remaining_outcome_period = int(row['Remaining Outcome Period'].split(" ")[0])
+        starting_cap = row['Starting Cap Net'].strip('%')
+        
+        if is_numeric_and_not_zero(remaining_cap) and is_numeric_and_not_zero(remaining_buffer) and is_numeric_and_not_zero(downside_before_buffer) and is_numeric_and_not_zero(starting_cap) and remaining_outcome_period != 0:
+            all_etf_dict[ticker] = {}
+            all_etf_dict[ticker]['remaining_cap'] = float(remaining_cap) / 100 # convert to percent
+            all_etf_dict[ticker]['remaining_buffer'] = float(remaining_buffer) / 100 
+            all_etf_dict[ticker]['downside_before_buffer'] = float(downside_before_buffer) / 100
+            all_etf_dict[ticker]['remaining_outcome_period'] = remaining_outcome_period
+            all_etf_dict[ticker]['starting_cap'] = float(starting_cap) / 100
+
+    return all_etf_dict 
 
 def thread_scrape_pacer_etf(ticker):
     if ticker in EXCLUSIONS:
@@ -300,20 +354,23 @@ def pacer():
 
 def scraper_main():
     all_etfs_dict = {}
-
+    
     # Define threads for each function
     first_trust_thread = threading.Thread(target=lambda: all_etfs_dict.update({"First Trust": first_trust()}))
     innovator_thread = threading.Thread(target=lambda: all_etfs_dict.update({"Innovator": innovator()}))
+    allianzim_thread = threading.Thread(target=lambda: all_etfs_dict.update({"Allianzim": allianzim()}))
     pacer_thread = threading.Thread(target=lambda: all_etfs_dict.update({"Pacer": pacer()}))
 
     # Start all threads
     first_trust_thread.start()
     innovator_thread.start()
+    allianzim_thread.start()
     pacer_thread.start()
 
     # Wait for all threads to finish
     first_trust_thread.join()
     innovator_thread.join()
+    allianzim.join()
     pacer_thread.join()
 
 
