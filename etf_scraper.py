@@ -370,7 +370,7 @@ def scraper_main():
     # Wait for all threads to finish
     first_trust_thread.join()
     innovator_thread.join()
-    allianzim.join()
+    allianzim_thread.join()
     pacer_thread.join()
 
 
