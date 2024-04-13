@@ -352,6 +352,120 @@ def pacer():
     return all_etf_dict
 
 
+def thread_scrape_pgim_etf(ticker, etf_name):
+    if etf_name in EXCLUSIONS:
+        print(f'Excluded: {etf_name}')
+        return None
+    
+    print(f'Scraping: {etf_name}')
+
+    etf_url = f'https://www.pgim.com/investments/etfs/{etf_name}'
+
+    driver = webdriver.Chrome(options=set_chrome_options())
+    stealth(driver,
+        languages=["en-US", "en"],
+        vendor="Google Inc.",
+        platform="Win32",
+        webgl_vendor="Intel Inc.",
+        renderer="Intel Iris OpenGL Engine",
+        fix_hairline=True,
+    )
+
+    driver.get(etf_url)
+
+    WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.CLASS_NAME, 'tertiary')))
+
+    soup = BeautifulSoup(driver.page_source, "html.parser")
+    driver.quit()
+
+    # get overview table to fetch starting cap
+    overview_table = soup.findAll('tbody', {'class': 'tertiary'})[0]
+    starting_cap_tr = [tr for tr in overview_table.findAll('tr')][7]
+    starting_cap = starting_cap_tr.findAll('td')[1].text.split('/')[1]
+
+    # get outcome period details table for remaining data
+    outcome_table = soup.findAll('table', {'id': 'notStickyHead '})[0]
+    outcome_table_trs = [tr for tr in outcome_table.findAll('tr')]
+    
+    # remaining cap
+    remaining_cap = outcome_table_trs[4].findAll('td')[2].text.split('/')[1]
+   
+    # remaining buffer
+    remaining_buffer = outcome_table_trs[5].findAll('td')[2].text.split('/')[1]
+    
+    # downside before buffer
+    downside_before_buffer = outcome_table_trs[6].findAll('td')[2].text.split('/')[1]
+
+    # remaining outcome period
+    remaining_outcome_period = int(outcome_table_trs[7].findAll('td')[2].text)
+
+
+    # make sure values won't mess up future calculations
+    if is_numeric_and_not_zero(remaining_cap) and is_numeric_and_not_zero(remaining_buffer) and is_numeric_and_not_zero(downside_before_buffer) and is_numeric_and_not_zero(starting_cap) and remaining_outcome_period != 0:
+        result = {
+            'remaining_cap': float(remaining_cap) / 100,
+            'remaining_buffer': float(remaining_buffer) / 100,
+            'downside_before_buffer': float(downside_before_buffer) / 100,
+            'remaining_outcome_period': remaining_outcome_period,
+            'starting_cap': float(starting_cap) / 100
+        }
+        return ticker, result
+    return None
+
+def pgim():
+    print("Scraping PGIM ETFs")
+    etf_url = "https://www.pgim.com/investments/etf-buffer-fund#text_and_card_tag_5915"
+
+    # Create a WebDriver instance with headless Chrome
+
+    driver = webdriver.Chrome(options=set_chrome_options())
+
+    stealth(driver,
+        languages=["en-US", "en"],
+        vendor="Google Inc.",
+        platform="Win32",
+        webgl_vendor="Intel Inc.",
+        renderer="Intel Iris OpenGL Engine",
+        fix_hairline=True,
+    )
+
+    # Load the page
+    driver.get(etf_url)
+    sleep(10)
+    
+    WebDriverWait(driver, 20).until(EC.element_to_be_clickable((By.ID, "attestationSubmitButton"))).click()
+
+    # wait for ETF table to load
+    WebDriverWait(driver, 20).until(EC.presence_of_element_located((By.ID, 'notStickyHead')))
+
+    # get the page source after JavaScript has executed
+    soup = BeautifulSoup(driver.page_source, "html.parser")
+    driver.quit()
+
+    # find main table and grab each etf ticker from it
+    table_body = soup.find('table', {'id': 'notStickyHead'})
+    table_trs = table_body.findAll('tr')
+    table_tds = [row.findAll('td') for row in table_trs]
+    etf_tickers = [td[0].text for td in table_tds if len(td) > 0]
+    etf_names = [td[1].text for td in table_tds if len(td) > 0]
+    
+
+    formated_etf_names = [name.replace('.', '').replace(' ', '-').replace('---', '-').lower() for name in etf_names]
+    # scrape each etf page indiviually 
+    with ThreadPoolExecutor(max_workers=multiprocessing.cpu_count()) as executor:
+        results = list(executor.map(thread_scrape_pgim_etf, etf_tickers, formated_etf_names))
+
+    # store all results
+    all_etf_dict = {}
+    for result in results:
+        if result is not None:
+            ticker, data = result
+            all_etf_dict[ticker] = data
+    
+    print('Finished...')
+    return all_etf_dict
+    
+
 def scraper_main():
     all_etfs_dict = {}
     
@@ -360,19 +474,20 @@ def scraper_main():
     innovator_thread = threading.Thread(target=lambda: all_etfs_dict.update({"Innovator": innovator()}))
     allianzim_thread = threading.Thread(target=lambda: all_etfs_dict.update({"Allianzim": allianzim()}))
     pacer_thread = threading.Thread(target=lambda: all_etfs_dict.update({"Pacer": pacer()}))
-
+    pgim_thread = threading.Thread(target=lambda: all_etfs_dict.update({"Pgim": pgim()}))
     # Start all threads
     first_trust_thread.start()
     innovator_thread.start()
     allianzim_thread.start()
     pacer_thread.start()
+    pgim_thread.start()
 
     # Wait for all threads to finish
     first_trust_thread.join()
     innovator_thread.join()
     allianzim_thread.join()
     pacer_thread.join()
-
+    pgim_thread.join()
 
 
     with open("etf_data.json", 'w') as json_file:
