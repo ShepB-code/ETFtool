@@ -450,7 +450,9 @@ def pgim():
     etf_names = [td[1].text for td in table_tds if len(td) > 0]
     
 
+    # each ETF page is not represented by the ticker, but the entire name delimeted by '-' 
     formated_etf_names = [name.replace('.', '').replace(' ', '-').replace('---', '-').lower() for name in etf_names]
+    
     # scrape each etf page indiviually 
     with ThreadPoolExecutor(max_workers=multiprocessing.cpu_count()) as executor:
         results = list(executor.map(thread_scrape_pgim_etf, etf_tickers, formated_etf_names))
@@ -475,6 +477,7 @@ def scraper_main():
     allianzim_thread = threading.Thread(target=lambda: all_etfs_dict.update({"Allianzim": allianzim()}))
     pacer_thread = threading.Thread(target=lambda: all_etfs_dict.update({"Pacer": pacer()}))
     pgim_thread = threading.Thread(target=lambda: all_etfs_dict.update({"Pgim": pgim()}))
+
     # Start all threads
     first_trust_thread.start()
     innovator_thread.start()
