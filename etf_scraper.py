@@ -2,6 +2,7 @@ import os
 from concurrent.futures import ThreadPoolExecutor
 from bs4 import BeautifulSoup
 import threading
+from threading import Lock
 import multiprocessing
 import json
 from selenium import webdriver
@@ -12,9 +13,13 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium_stealth import stealth
 from time import sleep
 import pandas as pd
+import logging
+import random
 
 EXCLUSIONS = ['BALT', 'ZALT', 'EALT', 'TJUL']
+lock = Lock()
 
+# HELPER FUNCTIONS
 def is_numeric_and_not_zero(num):
     try:
         fnum = float(num)
@@ -23,14 +28,15 @@ def is_numeric_and_not_zero(num):
         return False
 
 def set_chrome_options() -> Options:
-    """Sets chrome options for Selenium.
-    Chrome options for headless browser is enabled.
-    """
     chrome_options = Options()
-    chrome_options.add_argument("--headless")
+    #chrome_options.add_argument("--headless")
     chrome_options.add_argument("--ignore-certificate-errors")
     chrome_options.add_argument("--no-sandbox")
     chrome_options.add_argument("--disable-dev-shm-usage")
+    chrome_options.add_argument("--disable-logging")
+    chrome_options.add_argument("log-level=3")
+    chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
+    chrome_options.add_experimental_option('useAutomationExtension', False)
 
     chrome_prefs = {}
     chrome_options.experimental_options["prefs"] = chrome_prefs
@@ -43,6 +49,28 @@ def set_chrome_options() -> Options:
     chrome_prefs["safebrowsing.enabled"] = True
    
     return chrome_options
+
+def random_delay(min_delay=1, max_delay=5):
+    sleep(random.uniform(min_delay, max_delay))
+
+def handle_tab(driver, url, tab_index, element_type = None, element_name = ""):
+    with lock:
+        # only open a new tab if needed
+        if len(driver.window_handles) <= tab_index:
+            driver.execute_script("window.open('');")
+        
+        driver.switch_to.window(driver.window_handles[tab_index])
+        driver.get(url)
+        print("sleeping")
+        random_delay()
+
+        if element_type:
+            WebDriverWait(driver, 20).until(EC.presence_of_all_elements_located((element_type, element_name)))
+
+        return driver.page_source
+
+
+     
 
 def first_trust():
     print("Scraping First Trust ETFs...")
@@ -139,7 +167,7 @@ def first_trust():
 
 def innovator():
     print("Scraping Innovator ETFs...")
-
+    
     # define url and any downloadable file names
     etf_url = "https://www.innovatoretfs.com/define/etfs/#allproducts"
     csv_name = "DefinedOutcomeProductTable.csv"
@@ -148,7 +176,8 @@ def innovator():
     driver.get(etf_url)
 
     # find csv element and download csv
-    WebDriverWait(driver, 20).until(EC.element_to_be_clickable((By.ID, "BodyPlaceHolder_DOSGrid1_ExportLinkButton"))).click()
+    csv_download_element = WebDriverWait(driver, 20).until(EC.element_to_be_clickable((By.ID, "BodyPlaceHolder_DOSGrid1_ExportLinkButton")))
+    csv_download_element.click()
 
     download_directory = os.getcwd()
     # wait for file to download
@@ -213,10 +242,12 @@ def allianzim():
         sleep(1)
 
     # quit chrome
+    driver.close()
     driver.quit()
 
     # load csv into a pandas dataframe and skip first row (date)
     df = pd.read_csv(csv_name)
+    df = df.dropna(subset=['Starting Cap Net', 'Current Cap Net', 'Starting Buffer Net', 'Current Buffer Net', 'Current Downside Before Buffer Net'])
     
     os.remove(f'{download_directory}/{csv_name}')
 
@@ -225,15 +256,17 @@ def allianzim():
     for index, row in df.iterrows():
         ticker = row['Ticker_Start Date'].upper().split('_')[0]
         
+        # skip row if in exclusions
         if ticker in EXCLUSIONS:
             print(f'Excluded: {ticker}')
             continue 
 
+        
         remaining_cap = float(row['Starting Cap Net'].strip('%')) - float(row['Current Cap Net'].strip('%'))
         remaining_buffer = float(row['Starting Buffer Net'].strip('%')) - float(row['Current Buffer Net'].strip('%'))
-        downside_before_buffer = row['Downside Before Buffer Net'].strip('%')
+        downside_before_buffer = float(row['Current Downside Before Buffer Net'].strip('%'))
         remaining_outcome_period = int(row['Remaining Outcome Period'].split(" ")[0])
-        starting_cap = row['Starting Cap Net'].strip('%')
+        starting_cap = float(row['Starting Cap Net'].strip('%'))
         
         if is_numeric_and_not_zero(remaining_cap) and is_numeric_and_not_zero(remaining_buffer) and is_numeric_and_not_zero(downside_before_buffer) and is_numeric_and_not_zero(starting_cap) and remaining_outcome_period != 0:
             all_etf_dict[ticker] = {}
@@ -245,7 +278,7 @@ def allianzim():
 
     return all_etf_dict 
 
-def thread_scrape_pacer_etf(ticker):
+def thread_scrape_pacer_etf(driver, ticker, tab_index):
     if ticker in EXCLUSIONS:
         print(f'Excluded: {ticker}')
         return None
@@ -254,22 +287,26 @@ def thread_scrape_pacer_etf(ticker):
 
     etf_url = f'https://www.paceretfs.com/products/structured-outcome-strategies/{ticker}'
 
-    driver = webdriver.Chrome(options=set_chrome_options())
-    stealth(driver,
-        languages=["en-US", "en"],
-        vendor="Google Inc.",
-        platform="Win32",
-        webgl_vendor="Intel Inc.",
-        renderer="Intel Iris OpenGL Engine",
-        fix_hairline=True,
-    )
+    html_data = handle_tab(driver, etf_url, tab_index) # By.CLASS_NAME, 'panel panel-default'
 
-    driver.get(etf_url)
+    print(html_data)
+    soup = BeautifulSoup(html_data, "html.parser")
+    # driver = webdriver.Chrome(options=set_chrome_options())
+    # stealth(driver,
+    #     languages=["en-US", "en"],
+    #     vendor="Google Inc.",
+    #     platform="Win32",
+    #     webgl_vendor="Intel Inc.",
+    #     renderer="Intel Iris OpenGL Engine",
+    #     fix_hairline=True,
+    # )
 
-    #WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.CLASS_NAME, 'panel panel-default')))
+    # driver.get(etf_url)
 
-    soup = BeautifulSoup(driver.page_source, "html.parser")
-    driver.quit()
+    # #WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.CLASS_NAME, 'panel panel-default')))
+
+    # soup = BeautifulSoup(driver.page_source, "html.parser")
+    # driver.quit()
 
     # find current value table for specified ETF
     divs = soup.findAll('div', {'class': 'panel panel-default'})
@@ -304,49 +341,45 @@ def thread_scrape_pacer_etf(ticker):
     return None
 
     
-def pacer():
+def pacer(thread_count = 3):
     print("Scraping Pacer ETFs")
     etf_url = "https://www.paceretfs.com/products/structured-outcome-strategies"
 
-    # Create a WebDriver instance with headless Chrome
-
+    # Create chrome driver instance
     driver = webdriver.Chrome(options=set_chrome_options())
 
-    stealth(driver,
-        languages=["en-US", "en"],
-        vendor="Google Inc.",
-        platform="Win32",
-        webgl_vendor="Intel Inc.",
-        renderer="Intel Iris OpenGL Engine",
-        fix_hairline=True,
-    )
+    try:
+        stealth(driver,
+            languages=["en-US", "en"],
+            vendor="Google Inc.",
+            platform="Win32",
+            webgl_vendor="Intel Inc.",
+            renderer="Intel Iris OpenGL Engine",
+            fix_hairline=True,
+        )
 
-    # Load the page
-    driver.get(etf_url)
-    sleep(10)
- 
-    # allow contents to load
-    WebDriverWait(driver, 20).until(EC.presence_of_element_located((By.ID, 'swan-list')))
+        # Load the page
+        driver.get(etf_url)
+    
+        # allow contents to load
+        WebDriverWait(driver, 20).until(EC.presence_of_element_located((By.ID, 'swan-list')))
 
-    # get the page source after JavaScript has executed
-    soup = BeautifulSoup(driver.page_source, "html.parser")
-    driver.quit()
+        # get the page source after JavaScript has executed
+        soup = BeautifulSoup(driver.page_source, "html.parser")
 
-    # find main table and grab each etf ticker from it
-    table_body = soup.find('tbody', {'id': 'swan-list'})
-    main_page_trs = table_body.findAll('tr')
-    etf_tickers = [main_page_row.find('th').text for main_page_row in main_page_trs]
+        # find main table and grab each etf ticker from it
+        table_body = soup.find('tbody', {'id': 'swan-list'})
+        main_page_trs = table_body.findAll('tr')
+        etf_tickers = [main_page_row.find('th').text for main_page_row in main_page_trs]
 
-    # scrape each etf page indiviually 
-    with ThreadPoolExecutor(max_workers=multiprocessing.cpu_count()) as executor:
-        results = list(executor.map(thread_scrape_pacer_etf, etf_tickers))
+        with ThreadPoolExecutor(max_workers=thread_count) as executor:
+            futures = [executor.submit(thread_scrape_pacer_etf, driver, ticker, idx % thread_count) for idx, ticker in enumerate(etf_tickers)]
+            results = [future.result() for future in futures]
 
-    # store all results
-    all_etf_dict = {}
-    for result in results:
-        if result is not None:
-            ticker, data = result
-            all_etf_dict[ticker] = data
+        all_etf_dict = {ticker: data for ticker, data in results if data is not None}
+
+    finally:
+        driver.quit()
     
     print('Finished...')
     return all_etf_dict
@@ -412,14 +445,14 @@ def thread_scrape_pgim_etf(ticker, etf_name):
         return ticker, result
     return None
 
-def pgim():
+def pgim(thread_count = 3):
     print("Scraping PGIM ETFs")
     etf_url = "https://www.pgim.com/investments/etf-buffer-fund#text_and_card_tag_5915"
 
     # Create a WebDriver instance with headless Chrome
 
     driver = webdriver.Chrome(options=set_chrome_options())
-
+    
     stealth(driver,
         languages=["en-US", "en"],
         vendor="Google Inc.",
@@ -440,6 +473,9 @@ def pgim():
 
     # get the page source after JavaScript has executed
     soup = BeautifulSoup(driver.page_source, "html.parser")
+
+    # close and quit the process
+    driver.close()
     driver.quit()
 
     # find main table and grab each etf ticker from it
@@ -454,7 +490,7 @@ def pgim():
     formated_etf_names = [name.replace('.', '').replace(' ', '-').replace('---', '-').lower() for name in etf_names]
     
     # scrape each etf page indiviually 
-    with ThreadPoolExecutor(max_workers=multiprocessing.cpu_count()) as executor:
+    with ThreadPoolExecutor(max_workers=thread_count) as executor:
         results = list(executor.map(thread_scrape_pgim_etf, etf_tickers, formated_etf_names))
 
     # store all results
@@ -470,27 +506,30 @@ def pgim():
 
 def scraper_main():
     all_etfs_dict = {}
+
+    thread_count = 3
+    #multiprocessing.cpu_count()
     
     # Define threads for each function
-    first_trust_thread = threading.Thread(target=lambda: all_etfs_dict.update({"First Trust": first_trust()}))
-    innovator_thread = threading.Thread(target=lambda: all_etfs_dict.update({"Innovator": innovator()}))
-    allianzim_thread = threading.Thread(target=lambda: all_etfs_dict.update({"Allianzim": allianzim()}))
-    pacer_thread = threading.Thread(target=lambda: all_etfs_dict.update({"Pacer": pacer()}))
-    pgim_thread = threading.Thread(target=lambda: all_etfs_dict.update({"Pgim": pgim()}))
+    # first_trust_thread = threading.Thread(target=lambda: all_etfs_dict.update({"First Trust": first_trust()}))
+    # innovator_thread = threading.Thread(target=lambda: all_etfs_dict.update({"Innovator": innovator()}))
+    # allianzim_thread = threading.Thread(target=lambda: all_etfs_dict.update({"Allianzim": allianzim()}))
+    pacer_thread = threading.Thread(target=lambda: all_etfs_dict.update({"Pacer": pacer(thread_count = thread_count)}))
+    # pgim_thread = threading.Thread(target=lambda: all_etfs_dict.update({"Pgim": pgim(thread_count = thread_count)}))
 
     # Start all threads
-    first_trust_thread.start()
-    innovator_thread.start()
-    allianzim_thread.start()
+    # first_trust_thread.start()
+    # innovator_thread.start()
+    # allianzim_thread.start()
     pacer_thread.start()
-    pgim_thread.start()
+    # pgim_thread.start()
 
     # Wait for all threads to finish
-    first_trust_thread.join()
-    innovator_thread.join()
-    allianzim_thread.join()
+    # first_trust_thread.join()
+    # innovator_thread.join()
+    # allianzim_thread.join()
     pacer_thread.join()
-    pgim_thread.join()
+    # pgim_thread.join()
 
 
     with open("etf_data.json", 'w') as json_file:

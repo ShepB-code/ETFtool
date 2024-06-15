@@ -6,6 +6,11 @@ from datetime import datetime
 RAW_FACTOR = 2
 TIME_FACTOR = 100
 
+# score on main page be overall rank, not downside/before rank
+
+# grab underlying asset ("reference asset")
+
+# Grab reset month
 def excel_writer():
     # open workbook
     wb = xl.Workbook()
