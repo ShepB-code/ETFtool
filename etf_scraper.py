@@ -111,7 +111,7 @@ def first_trust():
         downside_before_buffer = row['Downside Before Buffer Net']
         remaining_outcome_period = row['Remaining Outcome Period (days)']
         #starting_cap = row['Starting Cap'].strip('%')
-    
+
         if is_numeric_and_not_zero(remaining_cap) and is_numeric_and_not_zero(remaining_buffer) and is_numeric_and_not_zero(downside_before_buffer) and is_numeric_and_not_zero(remaining_outcome_period):
             all_etf_dict[ticker] = {}
             all_etf_dict[ticker]['remaining_cap'] = remaining_cap
@@ -130,6 +130,8 @@ def first_trust():
 
 
         starting_cap = row['Starting Cap']
+
+        # print(f'Name: {ticker}\n\tValues: starting_cap_net: {starting_cap}, remaining_cap: {remaining_cap}, remaining_buffer: {remaining_buffer}, downside_before_buffer: {downside_before_buffer}, remaining_period: {remaining_outcome_period}')
 
         if is_numeric_and_not_zero(starting_cap) and ticker not in skipped_etfs:
             all_etf_dict[ticker]['starting_cap'] = starting_cap
@@ -180,7 +182,9 @@ def innovator():
         downside_before_buffer = row['Downside Before Buffer'].strip('%')
         remaining_outcome_period = int(row['Remaining Outcome Period (Days)'])
         starting_cap = row['Starting Cap'].strip('%')
-        
+
+        # print(f'Name: {ticker}\n\tValues: starting_cap_net: {starting_cap}, remaining_cap: {remaining_cap}, remaining_buffer: {remaining_buffer}, downside_before_buffer: {downside_before_buffer}, remaining_period: {remaining_outcome_period}')
+
         if is_numeric_and_not_zero(remaining_cap) and is_numeric_and_not_zero(remaining_buffer) and is_numeric_and_not_zero(downside_before_buffer) and is_numeric_and_not_zero(starting_cap) and remaining_outcome_period != 0:
             all_etf_dict[ticker] = {}
             all_etf_dict[ticker]['remaining_cap'] = float(remaining_cap) / 100 # convert to percent
@@ -239,6 +243,8 @@ def allianzim():
         remaining_outcome_period = int(row['Remaining Outcome Period'].split(" ")[0])
         starting_cap = row['Starting Cap Net'].strip('%')
         
+        # print(f'Name: {ticker}\n\tValues: starting_cap_net: {starting_cap}, remaining_cap: {remaining_cap}, remaining_buffer: {remaining_buffer}, downside_before_buffer: {downside_before_buffer}, remaining_period: {remaining_outcome_period}')
+
         if is_numeric_and_not_zero(remaining_cap) and is_numeric_and_not_zero(remaining_buffer) and is_numeric_and_not_zero(downside_before_buffer) and is_numeric_and_not_zero(starting_cap) and remaining_outcome_period != 0:
             all_etf_dict[ticker] = {}
             all_etf_dict[ticker]['remaining_cap'] = float(remaining_cap) / 100 # convert to percent
@@ -294,6 +300,9 @@ def thread_scrape_pacer_etf(ticker):
         downside_before_buffer = current_value_tds[6].text.split('/')[1].strip('%')
         remaining_outcome_period = int(current_value_tds[7].text.split(' ')[0])
         starting_cap = outcome_period_tds[3].text.strip('%')
+
+
+        # print(f'Name: {ticker}\n\tValues: starting_cap_net: {starting_cap}, remaining_cap: {remaining_cap}, remaining_buffer: {remaining_buffer}, downside_before_buffer: {downside_before_buffer}, remaining_period: {remaining_outcome_period}')
 
         # make sure values won't mess up future calculations
         if is_numeric_and_not_zero(remaining_cap) and is_numeric_and_not_zero(remaining_buffer) and is_numeric_and_not_zero(downside_before_buffer) and is_numeric_and_not_zero(starting_cap) and remaining_outcome_period != 0:
@@ -381,44 +390,49 @@ def thread_scrape_pgim_etf(ticker, etf_name):
 
     soup = BeautifulSoup(driver.page_source, "html.parser")
     driver.quit()
-
-    # get overview table to fetch starting cap
-    overview_table = soup.findAll('tbody', {'class': 'tertiary'})[0]
-    starting_cap_tr = [tr for tr in overview_table.findAll('tr')][7]
-    starting_cap = starting_cap_tr.findAll('td')[1].text.split('/')[1]
-
-    # get outcome period details table for remaining data
-    outcome_table = soup.findAll('table', {'id': 'notStickyHead '})[0]
-    outcome_table_trs = [tr for tr in outcome_table.findAll('tr')]
     
-    # remaining cap
-    remaining_cap = outcome_table_trs[4].findAll('td')[2].text.split('/')[1]
+    try: 
+        # get overview table to fetch starting cap
+        overview_table = soup.findAll('tbody', {'class': 'tertiary'})[0]
+        starting_cap_tr = [tr for tr in overview_table.findAll('tr')][7]
+        starting_cap_net = starting_cap_tr.findAll('td')[1].text.split('/')[1]
+
+        # get outcome period details table for remaining data
+        outcome_table = soup.findAll('table', {'id': 'notStickyHead '})[0]
+        outcome_table_trs = [tr for tr in outcome_table.findAll('tr')]
+        
+        # remaining cap
+        remaining_cap = outcome_table_trs[4].findAll('td')[2].text.split('/')[1]
+    
+        # remaining buffer
+        remaining_buffer = outcome_table_trs[5].findAll('td')[2].text.split('/')[1]
+        
+        # downside before buffer
+        downside_before_buffer = outcome_table_trs[6].findAll('td')[2].text.split('/')[1]
+
+        # remaining outcome period
+        remaining_outcome_period = outcome_table_trs[7].findAll('td')[2].text
+
+        # print(f'Name: {ticker}\n\tValues: starting_cap_net: {starting_cap_net}, remaining_cap: {remaining_cap}, remaining_buffer: {remaining_buffer}, downside_before_buffer: {downside_before_buffer}, remaining_period: {remaining_outcome_period}')
+         # make sure values won't mess up future calculations
+        if is_numeric_and_not_zero(remaining_cap) and is_numeric_and_not_zero(remaining_buffer) and is_numeric_and_not_zero(downside_before_buffer) and is_numeric_and_not_zero(starting_cap_net) and is_numeric_and_not_zero(remaining_outcome_period):
+            result = {
+                'remaining_cap': float(remaining_cap) / 100,
+                'remaining_buffer': float(remaining_buffer) / 100,
+                'downside_before_buffer': float(downside_before_buffer) / 100,
+                'remaining_outcome_period': remaining_outcome_period,
+                'starting_cap': float(starting_cap_net) / 100
+            }
+            return ticker, result
+
+    except ValueError as e:
+        print(f'{etf_name} hit value error: {e}')
    
-    # remaining buffer
-    remaining_buffer = outcome_table_trs[5].findAll('td')[2].text.split('/')[1]
-    
-    # downside before buffer
-    downside_before_buffer = outcome_table_trs[6].findAll('td')[2].text.split('/')[1]
-
-    # remaining outcome period
-    remaining_outcome_period = int(outcome_table_trs[7].findAll('td')[2].text)
-
-
-    # make sure values won't mess up future calculations
-    if is_numeric_and_not_zero(remaining_cap) and is_numeric_and_not_zero(remaining_buffer) and is_numeric_and_not_zero(downside_before_buffer) and is_numeric_and_not_zero(starting_cap) and remaining_outcome_period != 0:
-        result = {
-            'remaining_cap': float(remaining_cap) / 100,
-            'remaining_buffer': float(remaining_buffer) / 100,
-            'downside_before_buffer': float(downside_before_buffer) / 100,
-            'remaining_outcome_period': remaining_outcome_period,
-            'starting_cap': float(starting_cap) / 100
-        }
-        return ticker, result
     return None
 
 def pgim():
     print("Scraping PGIM ETFs")
-    etf_url = "https://www.pgim.com/investments/etf-buffer-fund#text_and_card_tag_5915"
+    etf_url = "https://www.pgim.com/investments/etf-buffer-performance"
 
     # Create a WebDriver instance with headless Chrome
 
@@ -437,9 +451,11 @@ def pgim():
     driver.get(etf_url)
     sleep(4)
 
-
     # agree and proceed button
-    WebDriverWait(driver, 20).until(EC.element_to_be_clickable((By.ID, "attestationSubmitButton"))).click()
+    agree_proceed_button = WebDriverWait(driver, 20).until(EC.presence_of_element_located((By.ID, "attestationSubmitButton")))
+    agree_proceed_button.click()
+    #driver.execute_script("arguments[0].click();", agree_proceed_button)
+    #WebDriverWait(driver, 20).until(EC.element_to_be_clickable((By.ID, "attestationSubmitButton"))).click()
 
     # wait for ETF table to load
     WebDriverWait(driver, 20).until(EC.presence_of_element_located((By.ID, 'notStickyHead')))
@@ -482,21 +498,21 @@ def scraper_main():
     innovator_thread = threading.Thread(target=lambda: all_etfs_dict.update({"Innovator": innovator()}))
     allianzim_thread = threading.Thread(target=lambda: all_etfs_dict.update({"Allianzim": allianzim()}))
     pacer_thread = threading.Thread(target=lambda: all_etfs_dict.update({"Pacer": pacer()}))
-    #pgim_thread = threading.Thread(target=lambda: all_etfs_dict.update({"Pgim": pgim()}))
+    pgim_thread = threading.Thread(target=lambda: all_etfs_dict.update({"Pgim": pgim()}))
 
     # Start all threads
     first_trust_thread.start()
     innovator_thread.start()
     allianzim_thread.start()
     pacer_thread.start()
-    # pgim_thread.start()
+    pgim_thread.start()
 
     # Wait for all threads to finish
     first_trust_thread.join()
     innovator_thread.join()
     allianzim_thread.join()
     pacer_thread.join()
-    # pgim_thread.join()
+    pgim_thread.join()
 
 
     with open("etf_data.json", 'w') as json_file:
