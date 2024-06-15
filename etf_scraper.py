@@ -148,10 +148,11 @@ def innovator():
     driver.get(etf_url)
 
     # find csv element and download csv
-    WebDriverWait(driver, 20).until(EC.element_to_be_clickable((By.ID, "BodyPlaceHolder_DOSGrid1_ExportLinkButton"))).click()
+    download_button = WebDriverWait(driver, 20).until(EC.presence_of_element_located((By.ID, "BodyPlaceHolder_DOSGrid1_ExportLinkButton")))
+    driver.execute_script("arguments[0].click();", download_button)
 
-    download_directory = os.getcwd()
     # wait for file to download
+    download_directory = os.getcwd()
     while not os.path.exists(f'{download_directory}/{csv_name}'):
         print("Waiting for file to download...")
         sleep(1)
@@ -162,11 +163,12 @@ def innovator():
     # load csv into a pandas dataframe and skip first row (date)
     df = pd.read_csv(csv_name, skiprows=1)
     
+    # remove excel files
     os.remove(f'{download_directory}/{csv_name}')
 
     print(f"Processing: {csv_name}")
     all_etf_dict = {}
-    for index, row in df.iterrows():
+    for _, row in df.iterrows():
         ticker = row['Ticker'].upper()
         
         if ticker in EXCLUSIONS:
@@ -217,12 +219,14 @@ def allianzim():
 
     # load csv into a pandas dataframe and skip first row (date)
     df = pd.read_csv(csv_name)
-    
+    df = df.dropna(subset=['Starting Cap Net', 'Current Cap Net', 'Starting Buffer Net', 'Current Buffer Net', 'Current Downside Before Buffer Net'])
+
+    # remove excel files
     os.remove(f'{download_directory}/{csv_name}')
 
     print(f"Processing: {csv_name}")
     all_etf_dict = {}
-    for index, row in df.iterrows():
+    for _, row in df.iterrows():
         ticker = row['Ticker_Start Date'].upper().split('_')[0]
         
         if ticker in EXCLUSIONS:
@@ -231,7 +235,7 @@ def allianzim():
 
         remaining_cap = float(row['Starting Cap Net'].strip('%')) - float(row['Current Cap Net'].strip('%'))
         remaining_buffer = float(row['Starting Buffer Net'].strip('%')) - float(row['Current Buffer Net'].strip('%'))
-        downside_before_buffer = row['Downside Before Buffer Net'].strip('%')
+        downside_before_buffer = row['Current Downside Before Buffer Net'].strip('%')
         remaining_outcome_period = int(row['Remaining Outcome Period'].split(" ")[0])
         starting_cap = row['Starting Cap Net'].strip('%')
         
@@ -431,8 +435,10 @@ def pgim():
 
     # Load the page
     driver.get(etf_url)
-    sleep(10)
-    
+    sleep(4)
+
+
+    # agree and proceed button
     WebDriverWait(driver, 20).until(EC.element_to_be_clickable((By.ID, "attestationSubmitButton"))).click()
 
     # wait for ETF table to load
@@ -476,21 +482,21 @@ def scraper_main():
     innovator_thread = threading.Thread(target=lambda: all_etfs_dict.update({"Innovator": innovator()}))
     allianzim_thread = threading.Thread(target=lambda: all_etfs_dict.update({"Allianzim": allianzim()}))
     pacer_thread = threading.Thread(target=lambda: all_etfs_dict.update({"Pacer": pacer()}))
-    pgim_thread = threading.Thread(target=lambda: all_etfs_dict.update({"Pgim": pgim()}))
+    #pgim_thread = threading.Thread(target=lambda: all_etfs_dict.update({"Pgim": pgim()}))
 
     # Start all threads
     first_trust_thread.start()
     innovator_thread.start()
     allianzim_thread.start()
     pacer_thread.start()
-    pgim_thread.start()
+    # pgim_thread.start()
 
     # Wait for all threads to finish
     first_trust_thread.join()
     innovator_thread.join()
     allianzim_thread.join()
     pacer_thread.join()
-    pgim_thread.join()
+    # pgim_thread.join()
 
 
     with open("etf_data.json", 'w') as json_file:
