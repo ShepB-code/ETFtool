@@ -109,7 +109,7 @@ def excel_writer():
 
     # write score ranking equations in ETF sheet
     for i in range(total_written):
-        formula = f'=_xlfn.RANK.EQ(Calc!E{i+2}, Calc!$E$2:Calc!$E${total_written+1})'
+        formula = f'=_xlfn.RANK.EQ(Calc!F{i+2}, Calc!$F$2:Calc!$F${total_written+1})'
         etf_sheet.cell(row=i + 2, column=1, value=formula)
 
 
@@ -137,6 +137,7 @@ def add_summary_rank(summary_sheet, summary_key, calc_list, start_row, num_to_di
     summary_sheet[f'C{start_row}'] = 'Score'
     summary_sheet[f'D{start_row}'] = 'Risk/Reward'
     summary_sheet[f'E{start_row}'] = 'Period/Time Factor'
+    summary_sheet[f'F{start_row}'] = "Downside/Buffer"
 
     summary_column_nums = {'score': 3, 'risk/reward': 4, 'period/time_factor': 5, 'downside/buffer': 6}
     start_row += 1
