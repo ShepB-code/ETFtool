@@ -80,8 +80,6 @@ def first_trust(driver):
             print("Waiting for file to download...")
             sleep(1)
 
-        driver.quit()
-
         df = pd.read_excel(main_excel_name, skiprows=2)
         df_target_outcomes = pd.read_excel(target_outcomes_excel_name, skiprows=2)
 
@@ -92,7 +90,6 @@ def first_trust(driver):
         # delete excel files
         os.remove(f'{download_directory}/{main_excel_name}')
         os.remove(f'{download_directory}/{target_outcomes_excel_name}')
-
 
         # process main data frame 
         all_etf_dict = {}
@@ -130,8 +127,6 @@ def first_trust(driver):
 
 
             starting_cap = row['Starting Cap']
-
-            # print(f'Name: {ticker}\n\tValues: starting_cap_net: {starting_cap}, remaining_cap: {remaining_cap}, remaining_buffer: {remaining_buffer}, downside_before_buffer: {downside_before_buffer}, remaining_period: {remaining_outcome_period}')
 
             if is_numeric_and_not_zero(starting_cap) and ticker not in skipped_etfs:
                 all_etf_dict[ticker]['starting_cap'] = starting_cap
@@ -183,8 +178,6 @@ def innovator(driver):
             downside_before_buffer = row['Downside Before Buffer'].strip('%')
             remaining_outcome_period = int(row['Remaining Outcome Period (Days)'])
             starting_cap = row['Starting Cap'].strip('%')
-
-            # print(f'Name: {ticker}\n\tValues: starting_cap_net: {starting_cap}, remaining_cap: {remaining_cap}, remaining_buffer: {remaining_buffer}, downside_before_buffer: {downside_before_buffer}, remaining_period: {remaining_outcome_period}')
 
             if is_numeric_and_not_zero(remaining_cap) and is_numeric_and_not_zero(remaining_buffer) and is_numeric_and_not_zero(downside_before_buffer) and is_numeric_and_not_zero(starting_cap) and remaining_outcome_period != 0:
                 all_etf_dict[ticker] = {}
@@ -244,8 +237,6 @@ def allianzim(driver):
             remaining_outcome_period = int(row['Remaining Outcome Period'].split(" ")[0])
             starting_cap = row['Starting Cap Net'].strip('%')
             
-            # print(f'Name: {ticker}\n\tValues: starting_cap_net: {starting_cap}, remaining_cap: {remaining_cap}, remaining_buffer: {remaining_buffer}, downside_before_buffer: {downside_before_buffer}, remaining_period: {remaining_outcome_period}')
-
             if is_numeric_and_not_zero(remaining_cap) and is_numeric_and_not_zero(remaining_buffer) and is_numeric_and_not_zero(downside_before_buffer) and is_numeric_and_not_zero(starting_cap) and remaining_outcome_period != 0:
                 all_etf_dict[ticker] = {}
                 all_etf_dict[ticker]['remaining_cap'] = float(remaining_cap) / 100 # convert to percent
@@ -287,7 +278,6 @@ def scrape_pacer_etf(driver, handle, ticker):
         current_value_tds = current_value_table.findAll('td')
         outcome_period_tds = outcome_period_table.findAll('td')
 
-
         remaining_cap = current_value_tds[4].text.split('/')[1].strip('%')
         remaining_buffer = current_value_tds[5].text.split('/')[1].strip('%')
         downside_before_buffer = current_value_tds[6].text.split('/')[1].strip('%')
@@ -310,11 +300,6 @@ def scrape_pacer_etf(driver, handle, ticker):
 def pacer(driver):
     print("Scraping Pacer ETFs...")
     etf_url = "https://www.paceretfs.com/products/structured-outcome-strategies"
-
-    # # Set chrome Options
-    # driver = uc.Chrome(
-    #     options=set_chrome_options(),
-    # )
 
     # Visit the page
     try:
@@ -343,8 +328,6 @@ def pacer(driver):
             # map page to correct page handle
             tab_map[ticker] = driver.current_window_handle
             
-            # print(f'Opened tab for {url} at {tab_map[ticker]}')
-
         # visit all pages and scrape data
         results = []
         for ticker, handle in tab_map.items():
@@ -403,8 +386,7 @@ def scrape_pgim_etf(driver, handle, ticker):
         # remaining outcome period
         remaining_outcome_period = outcome_table_trs[7].findAll('td')[2].text
 
-        # print(f'Name: {ticker}\n\tValues: starting_cap_net: {starting_cap_net}, remaining_cap: {remaining_cap}, remaining_buffer: {remaining_buffer}, downside_before_buffer: {downside_before_buffer}, remaining_period: {remaining_outcome_period}')
-         # make sure values won't mess up future calculations
+        # make sure values won't mess up future calculations
         if is_numeric_and_not_zero(remaining_cap) and is_numeric_and_not_zero(remaining_buffer) and is_numeric_and_not_zero(downside_before_buffer) and is_numeric_and_not_zero(starting_cap_net) and is_numeric_and_not_zero(remaining_outcome_period):
             result = {
                 'remaining_cap': float(remaining_cap) / 100,
@@ -445,7 +427,6 @@ def pgim(driver):
         table_tds = [row.findAll('td') for row in table_trs]
         etf_tickers = [td[0].text for td in table_tds if len(td) > 0]
         etf_names = [td[1].text for td in table_tds if len(td) > 0]
-        
 
         # each ETF page is not represented by the ticker, but the entire name delimeted by '-' 
         formated_etf_names = [name.replace('.', '').replace(' ', '-').replace('---', '-').lower() for name in etf_names]
@@ -461,8 +442,6 @@ def pgim(driver):
             # map page to correct page handle
             tab_map[ticker] = driver.current_window_handle
             
-            # print(f'Opened tab for {url} at {tab_map[ticker]}')
-
         # visit all pages and scrape data
         results = []
         for ticker, handle in tab_map.items():
@@ -471,7 +450,6 @@ def pgim(driver):
         
             if data:
                 results.append((ticker, data))
-
 
         # store all results
         all_etf_dict = {}
