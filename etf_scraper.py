@@ -57,89 +57,90 @@ def first_trust(driver):
     target_outcomes_excel_name = "TargetOutcomeStartingCapsAndBuffers.xlsx"
     
 
-    # driver = uc.Chrome(
-    #     options=set_chrome_options(),
-    # )    
-    # open up first page
-    driver.get(etf_url)
+    try:
+        driver.get(etf_url)
 
-    # open up new tab and load new page
-    driver.switch_to.new_window('tab')
-    driver.get(etf_target_outcomes_url)
+        # open up new tab and load new page
+        driver.switch_to.new_window('tab')
+        driver.get(etf_target_outcomes_url)
 
-    # click on element in second tab
-    WebDriverWait(driver, 20).until(EC.element_to_be_clickable((By.ID, "ContentPlaceHolder1_TargetOutcomeBasicsList_lnkDownloadToExcel"))).click()
-    driver.close()
+        # click on element in second tab
+        WebDriverWait(driver, 20).until(EC.element_to_be_clickable((By.ID, "ContentPlaceHolder1_TargetOutcomeBasicsList_lnkDownloadToExcel"))).click()
+        driver.close()
 
-    # switch back to first tab
-    driver.switch_to.window(driver.window_handles[0])
-    
-    # click on element in first tab
-    WebDriverWait(driver, 20).until(EC.element_to_be_clickable((By.ID, "ContentPlaceHolder1_targetoutcomeretail_lnkDownloadToExcel"))).click()
-    
-    download_directory = os.getcwd()
-    # wait for file to download
-    while not os.path.exists(f'{download_directory}/{main_excel_name}') or not os.path.exists(f'{download_directory}/{target_outcomes_excel_name}'):
-        print("Waiting for file to download...")
-        sleep(1)
+        # switch back to first tab
+        driver.switch_to.window(driver.window_handles[0])
+        
+        # click on element in first tab
+        WebDriverWait(driver, 20).until(EC.element_to_be_clickable((By.ID, "ContentPlaceHolder1_targetoutcomeretail_lnkDownloadToExcel"))).click()
+        
+        download_directory = os.getcwd()
+        # wait for file to download
+        while not os.path.exists(f'{download_directory}/{main_excel_name}') or not os.path.exists(f'{download_directory}/{target_outcomes_excel_name}'):
+            print("Waiting for file to download...")
+            sleep(1)
 
-    driver.quit()
+        driver.quit()
 
-    df = pd.read_excel(main_excel_name, skiprows=2)
-    df_target_outcomes = pd.read_excel(target_outcomes_excel_name, skiprows=2)
+        df = pd.read_excel(main_excel_name, skiprows=2)
+        df_target_outcomes = pd.read_excel(target_outcomes_excel_name, skiprows=2)
 
-    # last index has text, not data
-    df = df.drop(df.index[-1])
-    df_target_outcomes = df_target_outcomes.drop(df_target_outcomes.index[-1])
+        # last index has text, not data
+        df = df.drop(df.index[-1])
+        df_target_outcomes = df_target_outcomes.drop(df_target_outcomes.index[-1])
 
-    # delete excel files
-    os.remove(f'{download_directory}/{main_excel_name}')
-    os.remove(f'{download_directory}/{target_outcomes_excel_name}')
+        # delete excel files
+        os.remove(f'{download_directory}/{main_excel_name}')
+        os.remove(f'{download_directory}/{target_outcomes_excel_name}')
 
 
-    # process main data frame 
-    all_etf_dict = {}
-    skipped_etfs = set()
-    for _, row in df.iterrows():
-        ticker = row['Ticker'].upper()
+        # process main data frame 
+        all_etf_dict = {}
+        skipped_etfs = set()
+        for _, row in df.iterrows():
+            ticker = row['Ticker'].upper()
 
-        if ticker in EXCLUSIONS:
-            print(f'Excluded: {ticker}')
-            continue
+            if ticker in EXCLUSIONS:
+                print(f'Excluded: {ticker}')
+                continue
 
-        # values come as numbers in this excel document
-        remaining_cap = row['Remaining Cap Net']
-        remaining_buffer = row['Remaining Buffer Net']
-        downside_before_buffer = row['Downside Before Buffer Net']
-        remaining_outcome_period = row['Remaining Outcome Period (days)']
-        #starting_cap = row['Starting Cap'].strip('%')
+            # values come as numbers in this excel document
+            remaining_cap = row['Remaining Cap Net']
+            remaining_buffer = row['Remaining Buffer Net']
+            downside_before_buffer = row['Downside Before Buffer Net']
+            remaining_outcome_period = row['Remaining Outcome Period (days)']
+            #starting_cap = row['Starting Cap'].strip('%')
 
-        if is_numeric_and_not_zero(remaining_cap) and is_numeric_and_not_zero(remaining_buffer) and is_numeric_and_not_zero(downside_before_buffer) and is_numeric_and_not_zero(remaining_outcome_period):
-            all_etf_dict[ticker] = {}
-            all_etf_dict[ticker]['remaining_cap'] = remaining_cap
-            all_etf_dict[ticker]['remaining_buffer'] = remaining_buffer
-            all_etf_dict[ticker]['downside_before_buffer'] = downside_before_buffer
-            all_etf_dict[ticker]['remaining_outcome_period'] = int(remaining_outcome_period)
-        else:
-            skipped_etfs.add(ticker)
+            if is_numeric_and_not_zero(remaining_cap) and is_numeric_and_not_zero(remaining_buffer) and is_numeric_and_not_zero(downside_before_buffer) and is_numeric_and_not_zero(remaining_outcome_period):
+                all_etf_dict[ticker] = {}
+                all_etf_dict[ticker]['remaining_cap'] = remaining_cap
+                all_etf_dict[ticker]['remaining_buffer'] = remaining_buffer
+                all_etf_dict[ticker]['downside_before_buffer'] = downside_before_buffer
+                all_etf_dict[ticker]['remaining_outcome_period'] = int(remaining_outcome_period)
+            else:
+                skipped_etfs.add(ticker)
 
-    # process target outcomes dataframe
-    for _, row in df_target_outcomes.iterrows():
-        ticker = row['Ticker'].upper()
+        # process target outcomes dataframe
+        for _, row in df_target_outcomes.iterrows():
+            ticker = row['Ticker'].upper()
 
-        if ticker in EXCLUSIONS:
-            print(f'Excluded: {ticker}')
-            continue
+            if ticker in EXCLUSIONS:
+                print(f'Excluded: {ticker}')
+                continue
 
 
-        starting_cap = row['Starting Cap']
+            starting_cap = row['Starting Cap']
 
-        # print(f'Name: {ticker}\n\tValues: starting_cap_net: {starting_cap}, remaining_cap: {remaining_cap}, remaining_buffer: {remaining_buffer}, downside_before_buffer: {downside_before_buffer}, remaining_period: {remaining_outcome_period}')
+            # print(f'Name: {ticker}\n\tValues: starting_cap_net: {starting_cap}, remaining_cap: {remaining_cap}, remaining_buffer: {remaining_buffer}, downside_before_buffer: {downside_before_buffer}, remaining_period: {remaining_outcome_period}')
 
-        if is_numeric_and_not_zero(starting_cap) and ticker not in skipped_etfs:
-            all_etf_dict[ticker]['starting_cap'] = starting_cap
+            if is_numeric_and_not_zero(starting_cap) and ticker not in skipped_etfs:
+                all_etf_dict[ticker]['starting_cap'] = starting_cap
 
-    return all_etf_dict 
+        return all_etf_dict 
+    except Exception as e:
+        print(f'First Trust exited with an error: {e}')
+    finally:
+        driver.quit()
 
 def innovator(driver):
     print("Scraping Innovator ETFs...")
@@ -148,57 +149,56 @@ def innovator(driver):
     etf_url = "https://www.innovatoretfs.com/define/etfs/#allproducts"
     csv_name = "DefinedOutcomeProductTable.csv"
 
-    # driver = uc.Chrome(
-    #     options=set_chrome_options(),
-    # )    
-    driver.get(etf_url)
+    try:   
+        driver.get(etf_url)
 
-    # find csv element and download csv
-    download_button = WebDriverWait(driver, 20).until(EC.presence_of_element_located((By.ID, "BodyPlaceHolder_DOSGrid1_ExportLinkButton")))
-    driver.execute_script("arguments[0].click();", download_button)
+        # find csv element and download csv
+        download_button = WebDriverWait(driver, 20).until(EC.presence_of_element_located((By.ID, "BodyPlaceHolder_DOSGrid1_ExportLinkButton")))
+        driver.execute_script("arguments[0].click();", download_button)
 
-    # wait for file to download
-    download_directory = os.getcwd()
-    while not os.path.exists(f'{download_directory}/{csv_name}'):
-        print("Waiting for file to download...")
-        sleep(1)
+        # wait for file to download
+        download_directory = os.getcwd()
+        while not os.path.exists(f'{download_directory}/{csv_name}'):
+            print("Waiting for file to download...")
+            sleep(1)
 
-    # quit chrome
-    driver.quit()
 
-    # load csv into a pandas dataframe and skip first row (date)
-    df = pd.read_csv(csv_name, skiprows=1)
-    
-    # remove excel files
-    os.remove(f'{download_directory}/{csv_name}')
-
-    print(f"Processing: {csv_name}")
-    all_etf_dict = {}
-    for _, row in df.iterrows():
-        ticker = row['Ticker'].upper()
+        # load csv into a pandas dataframe and skip first row (date)
+        df = pd.read_csv(csv_name, skiprows=1)
         
-        if ticker in EXCLUSIONS:
-            print(f'Excluded: {ticker}')
-            continue 
+        # remove excel files
+        os.remove(f'{download_directory}/{csv_name}')
 
-        remaining_cap = row['Remaining Cap'].strip('%')
-        remaining_buffer = row['Remaining Buffer'].strip('%')
-        downside_before_buffer = row['Downside Before Buffer'].strip('%')
-        remaining_outcome_period = int(row['Remaining Outcome Period (Days)'])
-        starting_cap = row['Starting Cap'].strip('%')
+        print(f"Processing: {csv_name}")
+        all_etf_dict = {}
+        for _, row in df.iterrows():
+            ticker = row['Ticker'].upper()
+            
+            if ticker in EXCLUSIONS:
+                print(f'Excluded: {ticker}')
+                continue 
 
-        # print(f'Name: {ticker}\n\tValues: starting_cap_net: {starting_cap}, remaining_cap: {remaining_cap}, remaining_buffer: {remaining_buffer}, downside_before_buffer: {downside_before_buffer}, remaining_period: {remaining_outcome_period}')
+            remaining_cap = row['Remaining Cap'].strip('%')
+            remaining_buffer = row['Remaining Buffer'].strip('%')
+            downside_before_buffer = row['Downside Before Buffer'].strip('%')
+            remaining_outcome_period = int(row['Remaining Outcome Period (Days)'])
+            starting_cap = row['Starting Cap'].strip('%')
 
-        if is_numeric_and_not_zero(remaining_cap) and is_numeric_and_not_zero(remaining_buffer) and is_numeric_and_not_zero(downside_before_buffer) and is_numeric_and_not_zero(starting_cap) and remaining_outcome_period != 0:
-            all_etf_dict[ticker] = {}
-            all_etf_dict[ticker]['remaining_cap'] = float(remaining_cap) / 100 # convert to percent
-            all_etf_dict[ticker]['remaining_buffer'] = float(remaining_buffer) / 100 
-            all_etf_dict[ticker]['downside_before_buffer'] = float(downside_before_buffer) / 100
-            all_etf_dict[ticker]['remaining_outcome_period'] = remaining_outcome_period
-            all_etf_dict[ticker]['starting_cap'] = float(starting_cap) / 100
+            # print(f'Name: {ticker}\n\tValues: starting_cap_net: {starting_cap}, remaining_cap: {remaining_cap}, remaining_buffer: {remaining_buffer}, downside_before_buffer: {downside_before_buffer}, remaining_period: {remaining_outcome_period}')
 
-    return all_etf_dict 
+            if is_numeric_and_not_zero(remaining_cap) and is_numeric_and_not_zero(remaining_buffer) and is_numeric_and_not_zero(downside_before_buffer) and is_numeric_and_not_zero(starting_cap) and remaining_outcome_period != 0:
+                all_etf_dict[ticker] = {}
+                all_etf_dict[ticker]['remaining_cap'] = float(remaining_cap) / 100 # convert to percent
+                all_etf_dict[ticker]['remaining_buffer'] = float(remaining_buffer) / 100 
+                all_etf_dict[ticker]['downside_before_buffer'] = float(downside_before_buffer) / 100
+                all_etf_dict[ticker]['remaining_outcome_period'] = remaining_outcome_period
+                all_etf_dict[ticker]['starting_cap'] = float(starting_cap) / 100
 
+        return all_etf_dict 
+    except Exception as e:
+        print(f'Innovator exited with an error: {e}')
+    finally:
+        driver.quit()
 
 def allianzim(driver):
     print("Scraping Allianzim ETFs...")
@@ -207,62 +207,62 @@ def allianzim(driver):
     etf_url = "https://www.allianzim.com/product-table/"
     csv_name = "Allianz-ETFs.csv"
 
-    # driver = uc.Chrome(
-    #     options=set_chrome_options(),
-    # )        
-    driver.get(etf_url)
+    try:     
+        driver.get(etf_url)
 
-    # find csv element and download csv
-    csv_download_element = WebDriverWait(driver, 20).until(EC.element_to_be_clickable((By.ID, "chart-download")))
+        # find csv element and download csv
+        csv_download_element = WebDriverWait(driver, 20).until(EC.element_to_be_clickable((By.ID, "chart-download")))
 
-    driver.execute_script("arguments[0].scrollIntoView();", csv_download_element)
-    driver.execute_script("arguments[0].click();", csv_download_element)
+        driver.execute_script("arguments[0].scrollIntoView();", csv_download_element)
+        driver.execute_script("arguments[0].click();", csv_download_element)
 
-    download_directory = os.getcwd()
-    # wait for file to download
-    while not os.path.exists(f'{download_directory}/{csv_name}'):
-        print("Waiting for file to download...")
-        sleep(1)
+        download_directory = os.getcwd()
+        # wait for file to download
+        while not os.path.exists(f'{download_directory}/{csv_name}'):
+            print("Waiting for file to download...")
+            sleep(1)        
 
-    # quit chrome
-    driver.quit()
+        # load csv into a pandas dataframe and skip first row (date)
+        df = pd.read_csv(csv_name)
+        df = df.dropna(subset=['Starting Cap Net', 'Current Cap Net', 'Starting Buffer Net', 'Current Buffer Net', 'Current Downside Before Buffer Net'])
 
-    # load csv into a pandas dataframe and skip first row (date)
-    df = pd.read_csv(csv_name)
-    df = df.dropna(subset=['Starting Cap Net', 'Current Cap Net', 'Starting Buffer Net', 'Current Buffer Net', 'Current Downside Before Buffer Net'])
+        # remove excel files
+        os.remove(f'{download_directory}/{csv_name}')
 
-    # remove excel files
-    os.remove(f'{download_directory}/{csv_name}')
+        print(f"Processing: {csv_name}")
+        all_etf_dict = {}
+        for _, row in df.iterrows():
+            ticker = row['Ticker_Start Date'].upper().split('_')[0]
+            
+            if ticker in EXCLUSIONS:
+                print(f'Excluded: {ticker}')
+                continue 
 
-    print(f"Processing: {csv_name}")
-    all_etf_dict = {}
-    for _, row in df.iterrows():
-        ticker = row['Ticker_Start Date'].upper().split('_')[0]
-        
-        if ticker in EXCLUSIONS:
-            print(f'Excluded: {ticker}')
-            continue 
+            remaining_cap = float(row['Starting Cap Net'].strip('%')) - float(row['Current Cap Net'].strip('%'))
+            remaining_buffer = float(row['Starting Buffer Net'].strip('%')) - float(row['Current Buffer Net'].strip('%'))
+            downside_before_buffer = row['Current Downside Before Buffer Net'].strip('%')
+            remaining_outcome_period = int(row['Remaining Outcome Period'].split(" ")[0])
+            starting_cap = row['Starting Cap Net'].strip('%')
+            
+            # print(f'Name: {ticker}\n\tValues: starting_cap_net: {starting_cap}, remaining_cap: {remaining_cap}, remaining_buffer: {remaining_buffer}, downside_before_buffer: {downside_before_buffer}, remaining_period: {remaining_outcome_period}')
 
-        remaining_cap = float(row['Starting Cap Net'].strip('%')) - float(row['Current Cap Net'].strip('%'))
-        remaining_buffer = float(row['Starting Buffer Net'].strip('%')) - float(row['Current Buffer Net'].strip('%'))
-        downside_before_buffer = row['Current Downside Before Buffer Net'].strip('%')
-        remaining_outcome_period = int(row['Remaining Outcome Period'].split(" ")[0])
-        starting_cap = row['Starting Cap Net'].strip('%')
-        
-        # print(f'Name: {ticker}\n\tValues: starting_cap_net: {starting_cap}, remaining_cap: {remaining_cap}, remaining_buffer: {remaining_buffer}, downside_before_buffer: {downside_before_buffer}, remaining_period: {remaining_outcome_period}')
+            if is_numeric_and_not_zero(remaining_cap) and is_numeric_and_not_zero(remaining_buffer) and is_numeric_and_not_zero(downside_before_buffer) and is_numeric_and_not_zero(starting_cap) and remaining_outcome_period != 0:
+                all_etf_dict[ticker] = {}
+                all_etf_dict[ticker]['remaining_cap'] = float(remaining_cap) / 100 # convert to percent
+                all_etf_dict[ticker]['remaining_buffer'] = float(remaining_buffer) / 100 
+                all_etf_dict[ticker]['downside_before_buffer'] = float(downside_before_buffer) / 100
+                all_etf_dict[ticker]['remaining_outcome_period'] = remaining_outcome_period
+                all_etf_dict[ticker]['starting_cap'] = float(starting_cap) / 100
 
-        if is_numeric_and_not_zero(remaining_cap) and is_numeric_and_not_zero(remaining_buffer) and is_numeric_and_not_zero(downside_before_buffer) and is_numeric_and_not_zero(starting_cap) and remaining_outcome_period != 0:
-            all_etf_dict[ticker] = {}
-            all_etf_dict[ticker]['remaining_cap'] = float(remaining_cap) / 100 # convert to percent
-            all_etf_dict[ticker]['remaining_buffer'] = float(remaining_buffer) / 100 
-            all_etf_dict[ticker]['downside_before_buffer'] = float(downside_before_buffer) / 100
-            all_etf_dict[ticker]['remaining_outcome_period'] = remaining_outcome_period
-            all_etf_dict[ticker]['starting_cap'] = float(starting_cap) / 100
-
-    return all_etf_dict 
+        return all_etf_dict 
+    except Exception as e:
+        print(f'Allianzim exited with an error: {e}')
+    finally:
+        driver.quit()
 
 
 def scrape_pacer_etf(driver, handle, ticker):
+    print(f"Scraping: {ticker}")
     
     if ticker in EXCLUSIONS:
         print(f'Excluded: {ticker}')
@@ -317,52 +317,54 @@ def pacer(driver):
     # )
 
     # Visit the page
-    driver.get(etf_url)
+    try:
+        driver.get(etf_url)
     
-    # allow contents to load
-    WebDriverWait(driver, 5).until(EC.presence_of_element_located((By.ID, 'swan-list')))
+        # allow contents to load
+        WebDriverWait(driver, 5).until(EC.presence_of_element_located((By.ID, 'swan-list')))
 
-    # get the page source after JavaScript has executed
-    soup = BeautifulSoup(driver.page_source, "html.parser")
+        # get the page source after JavaScript has executed
+        soup = BeautifulSoup(driver.page_source, "html.parser")
 
-    # find main table and grab each etf ticker from it
-    table_body = soup.find('tbody', {'id': 'swan-list'})
-    main_page_trs = table_body.findAll('tr')
-    etf_tickers = [main_page_row.find('th').text for main_page_row in main_page_trs]
-    tab_map = {}
-    for ticker in etf_tickers:
-  
-        ticker = ticker.lower()
-        url = f"https://www.paceretfs.com/products/structured-outcome-strategies/{ticker}"
+        # find main table and grab each etf ticker from it
+        table_body = soup.find('tbody', {'id': 'swan-list'})
+        main_page_trs = table_body.findAll('tr')
+        etf_tickers = [main_page_row.find('th').text for main_page_row in main_page_trs]
+        tab_map = {}
+        for ticker in etf_tickers:
+    
+            ticker = ticker.lower()
+            url = f"https://www.paceretfs.com/products/structured-outcome-strategies/{ticker}"
+            
+            # open a new tab and visit page
+            driver.switch_to.new_window('tab')
+            driver.get(url)
+
+            # map page to correct page handle
+            tab_map[ticker] = driver.current_window_handle
+            
+            # print(f'Opened tab for {url} at {tab_map[ticker]}')
+
+        # visit all pages and scrape data
+        results = []
+        for ticker, handle in tab_map.items():
+            data = scrape_pacer_etf(driver, handle, ticker)
         
-        # open a new tab and visit page
-        driver.switch_to.new_window('tab')
-        driver.get(url)
+            if data:
+                results.append((ticker, data))
 
-        # map page to correct page handle
-        tab_map[ticker] = driver.current_window_handle
+        # store all results
+        all_etf_dict = {}
+        for result in results:
+            if result is not None:
+                ticker, data = result
+                all_etf_dict[ticker] = data
         
-        # print(f'Opened tab for {url} at {tab_map[ticker]}')
-
-    # visit all pages and scrape data
-    results = []
-    for ticker, handle in tab_map.items():
-        data = scrape_pacer_etf(driver, handle, ticker)
-    
-        if data:
-            results.append((ticker, data))
-
-    driver.quit()
-    
-    # store all results
-    all_etf_dict = {}
-    for result in results:
-        if result is not None:
-            ticker, data = result
-            all_etf_dict[ticker] = data
-    
-    return all_etf_dict
-
+        return all_etf_dict
+    except Exception as e:
+        print(f'Pacer exited with an error: {e}')
+    finally:
+        driver.quit()
 
 def scrape_pgim_etf(driver, handle, ticker):
     if ticker in EXCLUSIONS:
@@ -421,67 +423,69 @@ def scrape_pgim_etf(driver, handle, ticker):
 def pgim(driver):
     print("Scraping PGIM ETFs...")
     etf_url = "https://www.pgim.com/investments/etf-buffer-performance"
-
-    # pgim_driver = uc.Chrome(
-    #     options=set_chrome_options(),
-    # )
  
     # Load the page
-    driver.get(etf_url)
-    sleep(4)
+    try:
+        driver.get(etf_url)
+        sleep(4)
 
-    # agree and proceed button
-    agree_proceed_button = WebDriverWait(driver, 20).until(EC.presence_of_element_located((By.ID, "attestationSubmitButton")))
-    agree_proceed_button.click()
+        # agree and proceed button
+        agree_proceed_button = WebDriverWait(driver, 20).until(EC.presence_of_element_located((By.ID, "attestationSubmitButton")))
+        agree_proceed_button.click()
 
-    # wait for ETF table to load
-    WebDriverWait(driver, 20).until(EC.presence_of_element_located((By.ID, 'notStickyHead')))
+        # wait for ETF table to load
+        WebDriverWait(driver, 20).until(EC.presence_of_element_located((By.ID, 'notStickyHead')))
 
-    # get the page source after JavaScript has executed
-    soup = BeautifulSoup(driver.page_source, "html.parser")
+        # get the page source after JavaScript has executed
+        soup = BeautifulSoup(driver.page_source, "html.parser")
 
-    # find main table and grab each etf ticker from it
-    table_body = soup.find('table', {'id': 'notStickyHead'})
-    table_trs = table_body.findAll('tr')
-    table_tds = [row.findAll('td') for row in table_trs]
-    etf_tickers = [td[0].text for td in table_tds if len(td) > 0]
-    etf_names = [td[1].text for td in table_tds if len(td) > 0]
-    
-
-    # each ETF page is not represented by the ticker, but the entire name delimeted by '-' 
-    formated_etf_names = [name.replace('.', '').replace(' ', '-').replace('---', '-').lower() for name in etf_names]
-    
-    tab_map = {}
-    for etf_name, ticker in zip(formated_etf_names, etf_tickers):
-        url = f'https://www.pgim.com/investments/etfs/{etf_name}'
+        # find main table and grab each etf ticker from it
+        table_body = soup.find('table', {'id': 'notStickyHead'})
+        table_trs = table_body.findAll('tr')
+        table_tds = [row.findAll('td') for row in table_trs]
+        etf_tickers = [td[0].text for td in table_tds if len(td) > 0]
+        etf_names = [td[1].text for td in table_tds if len(td) > 0]
         
-        # open a new tab and visit page
-        driver.switch_to.new_window('tab')
-        driver.get(url)
 
-        # map page to correct page handle
-        tab_map[ticker] = driver.current_window_handle
+        # each ETF page is not represented by the ticker, but the entire name delimeted by '-' 
+        formated_etf_names = [name.replace('.', '').replace(' ', '-').replace('---', '-').lower() for name in etf_names]
         
-        # print(f'Opened tab for {url} at {tab_map[ticker]}')
+        tab_map = {}
+        for etf_name, ticker in zip(formated_etf_names, etf_tickers):
+            url = f'https://www.pgim.com/investments/etfs/{etf_name}'
+            
+            # open a new tab and visit page
+            driver.switch_to.new_window('tab')
+            driver.get(url)
 
-    # visit all pages and scrape data
-    results = []
-    for ticker, handle in tab_map.items():
-        data = scrape_pgim_etf(driver, handle, ticker)
-    
-        if data:
-            results.append((ticker, data))
+            # map page to correct page handle
+            tab_map[ticker] = driver.current_window_handle
+            
+            # print(f'Opened tab for {url} at {tab_map[ticker]}')
 
-    driver.quit()
+        # visit all pages and scrape data
+        results = []
+        for ticker, handle in tab_map.items():
+            ticker = ticker.upper()
+            data = scrape_pgim_etf(driver, handle, ticker)
+        
+            if data:
+                results.append((ticker, data))
 
-    # store all results
-    all_etf_dict = {}
-    for result in results:
-        if result is not None:
-            ticker, data = result
-            all_etf_dict[ticker] = data
-    
-    return all_etf_dict
+
+        # store all results
+        all_etf_dict = {}
+        for result in results:
+            if result is not None:
+                ticker, data = result
+                all_etf_dict[ticker] = data
+        
+        return all_etf_dict
+    except Exception as e:
+        print(f'PGIM exited with an error: {e}')
+    finally:
+        driver.quit()
+
     
 
 def scraper_main():
