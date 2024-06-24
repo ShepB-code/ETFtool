@@ -9,10 +9,12 @@ from selenium.webdriver.support import expected_conditions as EC
 from time import sleep
 import pandas as pd
 import undetected_chromedriver as uc
+import time
 
 
 EXCLUSIONS = ['BALT', 'ZALT', 'EALT', 'TJUL']
-
+EXCEL_DOWNLOAD_TIMEOUT = 20 # in seconds
+    
 
 def is_numeric_and_not_zero(num):
     try:
@@ -28,7 +30,7 @@ def set_chrome_options() -> Options:
     """
     chrome_options = uc.ChromeOptions()
 
-    chrome_options.add_argument("--headless")
+    # chrome_options.add_argument("--headless")
     chrome_options.add_argument("--ignore-certificate-errors")
     chrome_options.add_argument("--no-sandbox")
     chrome_options.add_argument("--disable-dev-shm-usage")
@@ -79,8 +81,12 @@ def first_trust(driver):
             (By.ID, "ContentPlaceHolder1_targetoutcomeretail_lnkDownloadToExcel"))).click()
 
         download_directory = os.getcwd()
-        # wait for file to download
+
+        # wait for both files to download
+        start_time = time.time()
         while not os.path.exists(f'{download_directory}/{main_excel_name}') or not os.path.exists(f'{download_directory}/{target_outcomes_excel_name}'):
+            if time.time() - start_time > EXCEL_DOWNLOAD_TIMEOUT:
+                raise TimeoutError("First Trust files did not download properly")
             print("Waiting for file to download...")
             sleep(1)
 
@@ -161,7 +167,10 @@ def innovator(driver):
 
         # wait for file to download
         download_directory = os.getcwd()
+        start_time = time.time()
         while not os.path.exists(f'{download_directory}/{csv_name}'):
+            if time.time() - start_time > EXCEL_DOWNLOAD_TIMEOUT:
+                raise TimeoutError("Innovator file did not download properly")
             print("Waiting for file to download...")
             sleep(1)
 
@@ -212,7 +221,6 @@ def allianzim(driver):
     # define url and any downloadable file names
     etf_url = "https://www.allianzim.com/product-table/"
     csv_name = "Allianz-ETFs.csv"
-
     try:
         driver.get(etf_url)
 
@@ -225,8 +233,12 @@ def allianzim(driver):
         driver.execute_script("arguments[0].click();", csv_download_element)
 
         download_directory = os.getcwd()
+
         # wait for file to download
+        start_time = time.time()
         while not os.path.exists(f'{download_directory}/{csv_name}'):
+            if time.time() - start_time > EXCEL_DOWNLOAD_TIMEOUT:
+                raise TimeoutError("Allianzim file did not download properly")
             print("Waiting for file to download...")
             sleep(1)
 
@@ -528,8 +540,8 @@ def scraper_main():
     pgim_thread = threading.Thread(
         target=lambda: all_etfs_dict.update({"Pgim": pgim(pgim_driver)}))
 
-    # Start all threads
-    print("Running threads...")
+    # # Start all threads
+    # print("Running threads...")
     first_trust_thread.start()
     innovator_thread.start()
     allianzim_thread.start()
