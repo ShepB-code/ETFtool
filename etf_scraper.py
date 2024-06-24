@@ -47,7 +47,7 @@ def set_chrome_options() -> Options:
    
     return chrome_options
 
-def first_trust():
+def first_trust(driver):
     print("Scraping First Trust ETFs...")
 
     # define needed etf endpoints
@@ -57,9 +57,9 @@ def first_trust():
     target_outcomes_excel_name = "TargetOutcomeStartingCapsAndBuffers.xlsx"
     
 
-    driver = uc.Chrome(
-        options=set_chrome_options(),
-    )    
+    # driver = uc.Chrome(
+    #     options=set_chrome_options(),
+    # )    
     # open up first page
     driver.get(etf_url)
 
@@ -139,19 +139,18 @@ def first_trust():
         if is_numeric_and_not_zero(starting_cap) and ticker not in skipped_etfs:
             all_etf_dict[ticker]['starting_cap'] = starting_cap
 
-    print("Finished...")
     return all_etf_dict 
 
-def innovator():
+def innovator(driver):
     print("Scraping Innovator ETFs...")
 
     # define url and any downloadable file names
     etf_url = "https://www.innovatoretfs.com/define/etfs/#allproducts"
     csv_name = "DefinedOutcomeProductTable.csv"
 
-    driver = uc.Chrome(
-        options=set_chrome_options(),
-    )    
+    # driver = uc.Chrome(
+    #     options=set_chrome_options(),
+    # )    
     driver.get(etf_url)
 
     # find csv element and download csv
@@ -201,16 +200,16 @@ def innovator():
     return all_etf_dict 
 
 
-def allianzim():
+def allianzim(driver):
     print("Scraping Allianzim ETFs...")
 
     # define url and any downloadable file names
     etf_url = "https://www.allianzim.com/product-table/"
     csv_name = "Allianz-ETFs.csv"
 
-    driver = uc.Chrome(
-        options=set_chrome_options(),
-    )        
+    # driver = uc.Chrome(
+    #     options=set_chrome_options(),
+    # )        
     driver.get(etf_url)
 
     # find csv element and download csv
@@ -308,14 +307,14 @@ def scrape_pacer_etf(driver, handle, ticker):
     return None
 
     
-def pacer():
-    print("Scraping Pacer ETFs")
+def pacer(driver):
+    print("Scraping Pacer ETFs...")
     etf_url = "https://www.paceretfs.com/products/structured-outcome-strategies"
 
-    # Set chrome Options
-    driver = uc.Chrome(
-        options=set_chrome_options(),
-    )
+    # # Set chrome Options
+    # driver = uc.Chrome(
+    #     options=set_chrome_options(),
+    # )
 
     # Visit the page
     driver.get(etf_url)
@@ -330,7 +329,6 @@ def pacer():
     table_body = soup.find('tbody', {'id': 'swan-list'})
     main_page_trs = table_body.findAll('tr')
     etf_tickers = [main_page_row.find('th').text for main_page_row in main_page_trs]
-    print(etf_tickers)
     tab_map = {}
     for ticker in etf_tickers:
   
@@ -420,27 +418,27 @@ def scrape_pgim_etf(driver, handle, ticker):
    
     return None
 
-def pgim():
-    print("Scraping PGIM ETFs")
+def pgim(driver):
+    print("Scraping PGIM ETFs...")
     etf_url = "https://www.pgim.com/investments/etf-buffer-performance"
 
-    pgim_driver = uc.Chrome(
-        options=set_chrome_options(),
-    )
+    # pgim_driver = uc.Chrome(
+    #     options=set_chrome_options(),
+    # )
  
     # Load the page
-    pgim_driver.get(etf_url)
+    driver.get(etf_url)
     sleep(4)
 
     # agree and proceed button
-    agree_proceed_button = WebDriverWait(pgim_driver, 20).until(EC.presence_of_element_located((By.ID, "attestationSubmitButton")))
+    agree_proceed_button = WebDriverWait(driver, 20).until(EC.presence_of_element_located((By.ID, "attestationSubmitButton")))
     agree_proceed_button.click()
 
     # wait for ETF table to load
-    WebDriverWait(pgim_driver, 20).until(EC.presence_of_element_located((By.ID, 'notStickyHead')))
+    WebDriverWait(driver, 20).until(EC.presence_of_element_located((By.ID, 'notStickyHead')))
 
     # get the page source after JavaScript has executed
-    soup = BeautifulSoup(pgim_driver.page_source, "html.parser")
+    soup = BeautifulSoup(driver.page_source, "html.parser")
 
     # find main table and grab each etf ticker from it
     table_body = soup.find('table', {'id': 'notStickyHead'})
@@ -458,23 +456,23 @@ def pgim():
         url = f'https://www.pgim.com/investments/etfs/{etf_name}'
         
         # open a new tab and visit page
-        pgim_driver.switch_to.new_window('tab')
-        pgim_driver.get(url)
+        driver.switch_to.new_window('tab')
+        driver.get(url)
 
         # map page to correct page handle
-        tab_map[ticker] = pgim_driver.current_window_handle
+        tab_map[ticker] = driver.current_window_handle
         
         # print(f'Opened tab for {url} at {tab_map[ticker]}')
 
     # visit all pages and scrape data
     results = []
     for ticker, handle in tab_map.items():
-        data = scrape_pgim_etf(pgim_driver, handle, ticker)
+        data = scrape_pgim_etf(driver, handle, ticker)
     
         if data:
             results.append((ticker, data))
 
-    pgim_driver.quit()
+    driver.quit()
 
     # store all results
     all_etf_dict = {}
@@ -488,15 +486,24 @@ def pgim():
 
 def scraper_main():
     all_etfs_dict = {}
-    
+
+    print("Setting up drivers...")
+    first_trust_driver = uc.Chrome(options=set_chrome_options())
+    innovator_driver = uc.Chrome(options=set_chrome_options())
+    allianzim_driver = uc.Chrome(options=set_chrome_options())
+    pacer_driver = uc.Chrome(options=set_chrome_options())
+    pgim_driver = uc.Chrome(options=set_chrome_options())
+
     # Define threads for each function
-    first_trust_thread = threading.Thread(target=lambda: all_etfs_dict.update({"First Trust": first_trust()}))
-    innovator_thread = threading.Thread(target=lambda: all_etfs_dict.update({"Innovator": innovator()}))
-    allianzim_thread = threading.Thread(target=lambda: all_etfs_dict.update({"Allianzim": allianzim()}))
-    pacer_thread = threading.Thread(target=lambda: all_etfs_dict.update({"Pacer": pacer()}))
-    pgim_thread = threading.Thread(target=lambda: all_etfs_dict.update({"Pgim": pgim()}))
+    print("Setting up threads...")
+    first_trust_thread = threading.Thread(target=lambda: all_etfs_dict.update({"First Trust": first_trust(first_trust_driver)}))
+    innovator_thread = threading.Thread(target=lambda: all_etfs_dict.update({"Innovator": innovator(innovator_driver)}))
+    allianzim_thread = threading.Thread(target=lambda: all_etfs_dict.update({"Allianzim": allianzim(allianzim_driver)}))
+    pacer_thread = threading.Thread(target=lambda: all_etfs_dict.update({"Pacer": pacer(pacer_driver)}))
+    pgim_thread = threading.Thread(target=lambda: all_etfs_dict.update({"Pgim": pgim(pgim_driver)}))
 
     # Start all threads
+    print("Running threads...")
     first_trust_thread.start()
     innovator_thread.start()
     allianzim_thread.start()
