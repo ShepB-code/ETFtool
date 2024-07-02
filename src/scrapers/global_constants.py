@@ -1,0 +1,2 @@
+EXCLUSIONS = ['BALT', 'ZALT', 'EALT', 'TJUL']
+EXCEL_DOWNLOAD_TIMEOUT = 20  # in seconds
