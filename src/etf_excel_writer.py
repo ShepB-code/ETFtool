@@ -6,6 +6,30 @@ from datetime import datetime
 RAW_FACTOR = 2
 TIME_FACTOR = 100
 
+etf_column_mapping = {
+    'Score Rank': 'A',
+    'Index': 'B',
+    'Provider': 'C',
+    'Ticker': 'D',
+    'Remaining Cap %': 'E',
+    'Remaining Buffer %': 'F',
+    'Downside Before Buffer %': 'G',
+    'Remaining Outcome Period': 'H',
+    'Starting Cap %': 'I',
+    'Reference Asset': 'J',
+    'Expense Ratio %': 'K',
+    'Type': 'L',
+    'Reset': 'M',
+    'Cap Used %': 'N',
+    'Percentage Used %': 'O',
+    'Remaining Percentage %': 'P',
+    'One Day Potential Return %': 'Q',
+    'One Month Potential Return %': 'R',
+    'One Year Potential Return %': 'S',
+    'Raw Value Sum * Mult': 'T',
+    'Raw Value Mult': 'U'
+}
+
 
 def excel_writer():
     # open workbook
@@ -13,24 +37,10 @@ def excel_writer():
     etf_sheet = wb.active
     etf_sheet.title = "ETFs"
 
-    etf_sheet['A1'] = 'Score Rank'
-    etf_sheet['B1'] = 'Index'
-    etf_sheet['C1'] = 'Provider'
-    etf_sheet['D1'] = 'Ticker'
-    etf_sheet['E1'] = 'Remaining Cap %'
-    etf_sheet['F1'] = 'Remaining Buffer %'
-    etf_sheet['G1'] = 'Downside Before Buffer %'
-    etf_sheet['H1'] = 'Remaining Outcome Period'
-    etf_sheet['I1'] = 'Starting Cap %'
-    etf_sheet['J1'] = 'Cap Used %'
-    etf_sheet['K1'] = 'Percentage Used %'
-    etf_sheet['L1'] = 'Remaining Percentage %'
-    etf_sheet['M1'] = 'One Day Potential Return %'
-    etf_sheet['N1'] = 'One Month Potential Return %'
-    etf_sheet['O1'] = 'One Year Potential Return %'
-    etf_sheet['P1'] = 'Raw Value Sum * Mult'
-    etf_sheet['Q1'] = 'Raw Value Mult'
-    etf_sheet['Q2'] = RAW_FACTOR
+    for column_name, column_letter in etf_column_mapping.items():
+        etf_sheet[f'{column_letter}1'] = column_name
+
+    etf_sheet[f'{etf_column_mapping["Raw Value Mult"]}2'] = RAW_FACTOR
 
     # get json
     with open('etf_data.json', 'r') as json_file:
@@ -56,24 +66,34 @@ def excel_writer():
                 etf_sheet.cell(
                     current_cell, 9).value = values['starting_cap']  # Starting Cap %
                 etf_sheet.cell(
-                    current_cell, 10).value = f'=I{current_cell} - E{current_cell}'  # Cap Used %
+                    current_cell, 10).value = values['reference_asset']  # Reference Asset
+                etf_sheet.cell(
+                    current_cell, 11).value = values['expense_ratio']  # Expense Ratio
+                etf_sheet.cell(
+                    current_cell, 12).value = values['type']  # Type ex. 5/15
+                etf_sheet.cell(
+                    current_cell, 13).value = values['reset']  # Reset ex. Quarterly
+                
+                etf_sheet.cell(
+                    current_cell, 14).value = f"={etf_column_mapping['Starting Cap %']}{current_cell} - {etf_column_mapping['Remaining Cap %']}{current_cell}"  # Cap Used %
                 # Percentage Used %
                 etf_sheet.cell(
-                    current_cell, 11).value = f'=J{current_cell}/I{current_cell}'
+                    current_cell, 15).value = f"={etf_column_mapping['Cap Used %']}{current_cell}/{etf_column_mapping['Starting Cap %']}{current_cell}"
                 # Remaining Percentage %
-                etf_sheet.cell(current_cell, 12).value = f'=1-K{current_cell}'
+                etf_sheet.cell(
+                    current_cell, 16).value = f"=1-{etf_column_mapping['Percentage Used %']}{current_cell}"
                 # One day potential return %
                 etf_sheet.cell(
-                    current_cell, 13).value = f'=E{current_cell}/H{current_cell}'
+                    current_cell, 17).value = f"={etf_column_mapping['Remaining Cap %']}{current_cell}/{etf_column_mapping['Remaining Outcome Period']}{current_cell}"
                 # One month Potential Return %
                 etf_sheet.cell(
-                    current_cell, 14).value = f'=M{current_cell}*30.5'
+                    current_cell, 18).value = f"={etf_column_mapping['One Day Potential Return %']}{current_cell}*30.5"
                 # One Year Potential Return %
                 etf_sheet.cell(
-                    current_cell, 15).value = f'=M{current_cell}*365'
+                    current_cell, 19).value = f"={etf_column_mapping['One Day Potential Return %']}{current_cell}*365"
                 # Raw Sum * Mult
                 etf_sheet.cell(
-                    current_cell, 16).value = f'=(E{current_cell}+F{current_cell}+G{current_cell})*$Q$2'
+                    current_cell, 20).value = f"=({etf_column_mapping['Remaining Cap %']}{current_cell}+{etf_column_mapping['Remaining Buffer %']}{current_cell}+{etf_column_mapping['Downside Before Buffer %']}{current_cell})*${etf_column_mapping['Raw Value Mult']}$2"
 
                 current_cell += 1
 
@@ -100,15 +120,15 @@ def excel_writer():
     total_written = current_cell - 2
 
     for i in range(total_written):
-        calc_sheet.cell(i + 2, 1).value = f'=ETFs!D{i+2}'  # Ticker
+        calc_sheet.cell(i + 2, 1).value = f"=ETFs!{etf_column_mapping['Ticker']}{i+2}"  # Ticker
         calc_sheet.cell(
-            i + 2, 2).value = f'=ETFs!E{i+2}/ETFs!G{i+2}'  # B column
-        calc_sheet.cell(i + 2, 3).value = f'=$G$2/ETFs!H{i+2}'  # C Column
+            i + 2, 2).value = f"=ETFs!{etf_column_mapping['Remaining Cap %']}{i+2}/ETFs!{etf_column_mapping['Downside Before Buffer %']}{i+2}"  # B column
+        calc_sheet.cell(i + 2, 3).value = f"=$G$2/ETFs!{etf_column_mapping['Remaining Outcome Period']}{i+2}"  # C Column
         calc_sheet.cell(i + 2, 4).value = f'=B{i+2}*C{i+2}'  # D Column
         calc_sheet.cell(
-            i + 2, 5).value = f'=ETFs!G{i+2}/ETFs!F{i+2}'  # E column
+            i + 2, 5).value = f"=ETFs!{etf_column_mapping['Downside Before Buffer %']}{i+2}/ETFs!{etf_column_mapping['Remaining Buffer %']}{i+2}"  # E column
         calc_sheet.cell(
-            i + 2, 6).value = f'=D{i+2}+E{i+2}+ETFs!P{i+2}'  # F Column
+            i + 2, 6).value = f"=D{i+2}+E{i+2}+ETFs!{etf_column_mapping['Raw Value Sum * Mult']}{i+2}"  # F Column
 
     # perform ranking of the ETFS into a summary page
     with open('etf_data.json', 'r') as json_file:
@@ -190,7 +210,7 @@ def generate_calc_list(etf_data):
     # list will store all etfs and their appropriate calculations
     calc_list = []
 
-    for provider, etfs in etf_data.items():
+    for _, etfs in etf_data.items():
         for ticker, etf_info in etfs.items():
             calc_dict = {}
             calc_dict['ticker'] = ticker
