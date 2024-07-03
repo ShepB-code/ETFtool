@@ -5,6 +5,7 @@ from selenium.webdriver.support import expected_conditions as EC
 from time import sleep
 from global_constants import *
 from helper_funcs import *
+import json
 
 
 def scrape_pgim_etf(driver, handle, ticker):
@@ -28,13 +29,18 @@ def scrape_pgim_etf(driver, handle, ticker):
         # get overview table to fetch starting cap
         overview_table = soup.findAll('tbody', {'class': 'tertiary'})[0]
         overview_table_trs = [tr for tr in overview_table.findAll('tr')]
-        starting_cap_tr = overview_table_trs[7]
-        starting_cap_net = starting_cap_tr.findAll('td')[1].text.split('/')[1]
 
-        outcome_period_start = overview_table_trs[5].text.replace(" ", "")
-        outcome_period_end = overview_table_trs[6].text.replace(" ", "")
+        # date from overview table (key facts)
+        reference_asset = overview_table_trs[2].findAll('td')[1].text.strip()
+        net_expense_ratio = overview_table_trs[4].findAll('td')[1].text
+        outcome_period_start = overview_table_trs[5].findAll('td')[
+            1].text.replace(" ", "")
+        outcome_period_end = overview_table_trs[6].findAll(
+            'td')[1].text.replace(" ", "")
         reset_period = calculate_reset_schedule(
             outcome_period_start, outcome_period_end)
+        starting_cap_net = overview_table_trs[7].findAll('td')[
+            1].text.split('/')[1]
 
         # get outcome period details table for remaining data
         outcome_table = soup.findAll('table', {'id': 'notStickyHead '})[0]
@@ -53,16 +59,19 @@ def scrape_pgim_etf(driver, handle, ticker):
             2].text.split('/')[1]
 
         # remaining outcome period
-        remaining_outcome_period = outcome_table_trs[7].findAll('td')[2].text
+        remaining_outcome_period = outcome_table_trs[7].findAll('td')[
+            2].text
 
         # make sure values won't mess up future calculations
-        if is_numeric_and_not_zero(remaining_cap) and is_numeric_and_not_zero(remaining_buffer) and is_numeric_and_not_zero(downside_before_buffer) and is_numeric_and_not_zero(starting_cap_net) and is_numeric_and_not_zero(remaining_outcome_period):
+        if is_numeric_and_not_zero(remaining_cap) and is_numeric_and_not_zero(remaining_buffer) and is_numeric_and_not_zero(downside_before_buffer) and is_numeric_and_not_zero(starting_cap_net) and is_numeric_and_not_zero(remaining_outcome_period) and is_numeric_and_not_zero(net_expense_ratio):
             result = {
                 'remaining_cap': float(remaining_cap) / 100,
                 'remaining_buffer': float(remaining_buffer) / 100,
                 'downside_before_buffer': float(downside_before_buffer) / 100,
-                'remaining_outcome_period': remaining_outcome_period,
+                'remaining_outcome_period': int(remaining_outcome_period),
                 'starting_cap': float(starting_cap_net) / 100,
+                'expense_ratio': float(net_expense_ratio) / 100,
+                'reference_asset': reference_asset,
                 'reset': reset_period
             }
             return result
@@ -144,4 +153,5 @@ if __name__ == "__main__":
 
     pgim_res = Scrape_PGIM(driver)
 
-    print(pgim_res)
+    with open("pgim_scrape.json", 'w') as json_file:
+        json_file.write(json.dumps(pgim_res, indent=2))
