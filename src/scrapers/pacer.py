@@ -4,6 +4,7 @@ from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 from global_constants import *
 from helper_funcs import *
+import json
 
 
 def scrape_pacer_etf(driver, handle, ticker):
@@ -22,40 +23,50 @@ def scrape_pacer_etf(driver, handle, ticker):
 
     # find current value table for specified ETF
     divs = soup.findAll('div', {'class': 'panel panel-default'})
+
+    overview_table = soup.findAll('tbody', {'id': 'fd-tbody'})
     current_value_div = [div for div in divs if div.find('div', {'class': 'panel-header'}) != None and div.find(
         'div', {'class': 'panel-header'}).find('h2').text == "Current Values"]
     outcome_period_div = [div for div in divs if div.find('div', {'class': 'panel-header'}) != None and div.find(
         'div', {'class': 'panel-header'}).find('h2').text == "Outcome Period Values"]
-
     # if table found, then grab data and store it
-    if len(current_value_div) == 1 and len(outcome_period_div) == 1:
-        current_value_table = current_value_div[0].find('table')
-        outcome_period_table = outcome_period_div[0].find('table')
+    if len(overview_table) == 1 and len(current_value_div) == 1 and len(outcome_period_div) == 1:
+        # data from overview side tab
+        overview_tds = overview_table[0].findAll('td')
+        expense_ratio = overview_tds[14].text.strip('%')
 
-        current_value_tds = current_value_table.findAll('td')
+        # data from "Outcome Period Values"
+        outcome_period_table = outcome_period_div[0].find('table')
         outcome_period_tds = outcome_period_table.findAll('td')
+
+        exposure_asset = outcome_period_tds[1].text
+        outcome_period = outcome_period_tds[2].text.replace(" ", "").split('-')
+
+        reset_period = calculate_reset_schedule(
+            outcome_period[0], outcome_period[1], date_format='%m/%d/%y'
+        )
+        starting_cap = outcome_period_tds[3].text.strip('%')
+
+        # data from "Current Values"
+        current_value_table = current_value_div[0].find('table')
+        current_value_tds = current_value_table.findAll('td')
 
         remaining_cap = current_value_tds[4].text.split('/')[1].strip('%')
         remaining_buffer = current_value_tds[5].text.split('/')[1].strip('%')
         downside_before_buffer = current_value_tds[6].text.split(
             '/')[1].strip('%')
         remaining_outcome_period = int(current_value_tds[7].text.split(' ')[0])
-        starting_cap = outcome_period_tds[3].text.strip('%')
-
-        outcome_period = outcome_period_tds[2].text.replace(" ", "").split('-')
-
-        reset_period = calculate_reset_schedule(
-            outcome_period[0], outcome_period[1], date_format='%m/%d/%y'
-        )
 
         # make sure values won't mess up future calculations
-        if is_numeric_and_not_zero(remaining_cap) and is_numeric_and_not_zero(remaining_buffer) and is_numeric_and_not_zero(downside_before_buffer) and is_numeric_and_not_zero(starting_cap) and remaining_outcome_period != 0:
+        if is_numeric_and_not_zero(expense_ratio) and is_numeric_and_not_zero(starting_cap) and is_numeric_and_not_zero(remaining_cap) and is_numeric_and_not_zero(remaining_buffer) and is_numeric_and_not_zero(downside_before_buffer) and remaining_outcome_period != 0:
             result = {
                 'remaining_cap': float(remaining_cap) / 100,
                 'remaining_buffer': float(remaining_buffer) / 100,
                 'downside_before_buffer': float(downside_before_buffer) / 100,
                 'remaining_outcome_period': remaining_outcome_period,
                 'starting_cap': float(starting_cap) / 100,
+                'expense_ratio': float(expense_ratio) / 100,
+                'reference_asset': exposure_asset,
                 'reset': reset_period
             }
             return result
@@ -122,4 +133,5 @@ if __name__ == "__main__":
 
     pacer_res = Scrape_Pacer(driver)
 
-    print(pacer_res)
+    with open("pacer_scrape.json", 'w') as json_file:
+        json_file.write(json.dumps(pacer_res, indent=2))
