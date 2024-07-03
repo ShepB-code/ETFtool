@@ -1,4 +1,5 @@
 import os
+from bs4 import BeautifulSoup
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
@@ -7,6 +8,112 @@ import pandas as pd
 import time
 from global_constants import *
 from helper_funcs import *
+import json
+
+
+def scrape_first_trust_etf(driver, handle, ticker):
+    print(f'Scraping: {ticker}')
+    try:
+        driver.switch_to.window(handle)
+
+        WebDriverWait(driver, 10).until(
+            EC.presence_of_element_located((By.TAG_NAME, "body")))
+
+        soup = BeautifulSoup(driver.page_source, "html.parser")
+
+        fund_overview_table = soup.find(
+            'table', {'id': 'FundOverview_FundControlContainer_NameValuePairListing'})
+
+        value_tables = soup.findAll('table', {'class': 'fundGrid'})
+
+        outcome_period_table = [table for table in value_tables if table.find('div', {'class': 'silverBox fundControlSeperatorBar'}) and table.find(
+            'div', {'class': 'silverBox fundControlSeperatorBar'}).text.strip() == "Outcome Period Values"]
+        current_values_table = [table for table in value_tables if table.find('div', {'class': 'silverBox fundControlSeperatorBar'}) and "Current Values" in table.find(
+            'div', {'class': 'silverBox fundControlSeperatorBar'}).text]
+
+        if fund_overview_table and len(outcome_period_table) == 1 and len(current_values_table) == 1:
+            outcome_period_table = outcome_period_table[0]
+            current_values_table = current_values_table[0]
+            secondary_outcome_period_table = value_tables[2]  # this is a hack
+
+            # data from "Fund Overview"
+            expense_ratio = fund_overview_table.findAll(
+                'tr')[13].findAll('td')[1].text.strip('%')
+
+            # data from "Outcome Period Values"
+            outcome_period_trs = outcome_period_table.findAll('tr')
+
+            reference_asset_tr = [tr for tr in outcome_period_trs if tr.findAll(
+                'td')[0].text.strip() == "Reference Asset"][0]
+            reference_asset = map_reference_asset_to_generic(
+                reference_asset_tr.findAll('td')[1].text.strip())
+
+            period_tr = [tr for tr in outcome_period_trs if tr.findAll(
+                'td')[0].text.strip() == "Outcome Period"][0]
+            outcome_periods = period_tr.findAll(
+                'td')[1].text.replace(" ", "").split('-')
+            reset_period = calculate_reset_schedule(
+                outcome_periods[0], outcome_periods[1])
+
+            fund_cap_tr = [tr for tr in outcome_period_trs if tr.findAll(
+                'td')[0].text.strip() == "Fund Cap (Net)"][0]
+            starting_cap = fund_cap_tr.findAll(
+                'td')[1].text.strip().split(" ")[1][1:-1].strip('%')
+
+            # data from Secondary outcome period values
+            secondary_outcome_period_trs = secondary_outcome_period_table.findAll(
+                'tr')
+            buffer_start_tr = [tr for tr in secondary_outcome_period_trs if tr.findAll(
+                'td')[0].text.strip() == "Buffer Start % / Reference Asset Value"][0]
+            buffer_start = buffer_start_tr.findAll(
+                'td')[1].text.replace(" ", "").split('/')[0].strip('%')
+            buffer_end_tr = [tr for tr in secondary_outcome_period_trs if tr.findAll(
+                'td')[0].text.strip() == "Buffer End % / Reference Asset Value"][0]
+            buffer_end = buffer_end_tr.findAll(
+                'td')[1].text.replace(" ", "").split('/')[0].strip('%')
+
+            etf_type = f'{str(abs(int(float(buffer_start))))}/{str(abs(int(float(buffer_end))))}'
+
+            # data from "Current Values" (net values)
+            current_values_trs = current_values_table.findAll('tr')
+            remaining_outcome_period_tr = [tr for tr in current_values_trs if tr.findAll(
+                'td')[0].text.strip() == "Remaining Outcome Period"][0]
+            remaining_outcome_period = remaining_outcome_period_tr.findAll('td')[
+                1].text.split(" ")[0]
+
+            remaining_cap_tr = [tr for tr in current_values_trs if tr.findAll(
+                'td')[0].text.strip() == "Remaining Cap (Net)"][0]
+            remaining_cap = remaining_cap_tr.findAll(
+                'td')[1].text.strip().split(" ")[1][1:-1].strip('%')
+
+            remaining_buffer_tr = [tr for tr in current_values_trs if tr.findAll(
+                'td')[0].text.strip() == "Remaining Buffer (Net)"][0]
+            remaining_buffer = remaining_buffer_tr.findAll(
+                'td')[1].text.strip().split(" ")[1][1:-1].strip('%')
+
+            downside_before_buffer_tr = [tr for tr in current_values_trs if tr.findAll(
+                'td')[0].text.strip() == "Downside Before Buffer (Net)"][0]
+            downside_before_buffer = downside_before_buffer_tr.findAll(
+                'td')[1].text.strip().split(" ")[1][1:-1].strip('%')
+
+            # make sure values won't mess up future calculations
+            if is_numeric_and_not_zero(expense_ratio) and is_numeric_and_not_zero(starting_cap) and is_numeric_and_not_zero(remaining_cap) and is_numeric_and_not_zero(remaining_buffer) and is_numeric_and_not_zero(downside_before_buffer) and is_numeric_and_not_zero(remaining_outcome_period):
+                result = {
+                    'remaining_cap': float(remaining_cap) / 100,
+                    'remaining_buffer': float(remaining_buffer) / 100,
+                    'downside_before_buffer': float(downside_before_buffer) / 100,
+                    'remaining_outcome_period': int(remaining_outcome_period),
+                    'starting_cap': float(starting_cap) / 100,
+                    'expense_ratio': float(expense_ratio) / 100,
+                    'reference_asset': reference_asset,
+                    'type': etf_type,
+                    'reset': reset_period
+                }
+                return result
+        return None
+    except Exception as e:
+        print(f'{ticker} threw expection: {e}')
+        return None
 
 
 def Scrape_First_Trust(driver):
@@ -14,97 +121,53 @@ def Scrape_First_Trust(driver):
 
     # define needed etf endpoints
     etf_url = "https://www.ftportfolios.com/Retail/etf/targetoutcomefundlist.aspx"
-    etf_target_outcomes_url = "https://www.ftportfolios.com/Retail/etf/targetoutcomebasicslist.aspx"
-    main_excel_name = "TargetOutcomeFundList.xlsx"
-    target_outcomes_excel_name = "TargetOutcomeStartingCapsAndBuffers.xlsx"
 
     try:
         driver.get(etf_url)
 
-        # open up new tab and load new page
-        driver.switch_to.new_window('tab')
-        driver.get(etf_target_outcomes_url)
+        WebDriverWait(driver, 10).until(
+            EC.presence_of_element_located((By.ID, "Table1")))
 
-        # click on element in second tab
-        WebDriverWait(driver, 20).until(EC.element_to_be_clickable(
-            (By.ID, "ContentPlaceHolder1_TargetOutcomeBasicsList_lnkDownloadToExcel"))).click()
-        driver.close()
+        soup = BeautifulSoup(driver.page_source, "html.parser")
 
-        # switch back to first tab
-        driver.switch_to.window(driver.window_handles[0])
+        # grab main table
+        etf_table = soup.findAll('table', {'class': 'searchResults small'})
+        etf_table_a_tags = etf_table[0].findAll('a')  # skip header row
 
-        # click on element in first tab
-        WebDriverWait(driver, 20).until(EC.element_to_be_clickable(
-            (By.ID, "ContentPlaceHolder1_targetoutcomeretail_lnkDownloadToExcel"))).click()
+        # go through rows and get tickers
+        tickers = []
+        for a_tag in etf_table_a_tags:
+            ticker = a_tag.text
+            # skip pdf a tags and exclusions
+            if ticker != "" and ticker not in EXCLUSIONS:
+                tickers.append(ticker)
 
-        download_directory = os.getcwd()
+        # open up etf pages
+        tab_map = {}
+        for ticker in tickers:
+            url = f'https://www.ftportfolios.com/Retail/Etf/EtfSummary.aspx?Ticker={ticker}'
+            # open a new tab and visit page
+            driver.switch_to.new_window('tab')
+            driver.get(url)
 
-        # wait for both files to download
-        start_time = time.time()
-        while not os.path.exists(f'{download_directory}/{main_excel_name}') or not os.path.exists(f'{download_directory}/{target_outcomes_excel_name}'):
-            if time.time() - start_time > EXCEL_DOWNLOAD_TIMEOUT:
-                raise TimeoutError(
-                    "First Trust files did not download properly")
-            print("Waiting for file to download...")
-            sleep(1)
+            # map page to correct page handle
+            tab_map[ticker] = driver.current_window_handle
 
-        df = pd.read_excel(main_excel_name, skiprows=2)
-        df_target_outcomes = pd.read_excel(
-            target_outcomes_excel_name, skiprows=2)
+        # visit all pages and scrape data
+        results = []
+        for ticker, handle in tab_map.items():
+            ticker = ticker.upper()
+            data = scrape_first_trust_etf(driver, handle, ticker)
 
-        # last index has text, not data
-        df = df.drop(df.index[-1])
-        df_target_outcomes = df_target_outcomes.drop(
-            df_target_outcomes.index[-1])
+            if data:
+                results.append((ticker, data))
 
-        # delete excel files
-        os.remove(f'{download_directory}/{main_excel_name}')
-        os.remove(f'{download_directory}/{target_outcomes_excel_name}')
-
-        # process main data frame
+        # store all results
         all_etf_dict = {}
-        skipped_etfs = set()
-        for _, row in df.iterrows():
-            ticker = row['Ticker'].upper()
-
-            if ticker in EXCLUSIONS:
-                print(f'Excluded: {ticker}')
-                continue
-
-            remaining_cap = row['Remaining Cap Net']
-            remaining_buffer = row['Remaining Buffer Net']
-            downside_before_buffer = row['Downside Before Buffer Net']
-            remaining_outcome_period = row['Remaining Outcome Period (days)']
-
-            # calc reset schedule
-            start_date = row['Outcome Period Start Date']
-            end_date = row['Outcome Period End Date']
-            reset_period = calculate_reset_schedule(
-                start_date, end_date, date_format='%m/%d/%Y')
-
-            if is_numeric_and_not_zero(remaining_cap) and is_numeric_and_not_zero(remaining_buffer) and is_numeric_and_not_zero(downside_before_buffer) and is_numeric_and_not_zero(remaining_outcome_period):
-                all_etf_dict[ticker] = {}
-                all_etf_dict[ticker]['remaining_cap'] = remaining_cap
-                all_etf_dict[ticker]['remaining_buffer'] = remaining_buffer
-                all_etf_dict[ticker]['downside_before_buffer'] = downside_before_buffer
-                all_etf_dict[ticker]['remaining_outcome_period'] = int(
-                    remaining_outcome_period)
-                all_etf_dict[ticker]['reset'] = reset_period
-            else:
-                skipped_etfs.add(ticker)
-
-        # process target outcomes dataframe
-        for _, row in df_target_outcomes.iterrows():
-            ticker = row['Ticker'].upper()
-
-            if ticker in EXCLUSIONS:
-                print(f'Excluded: {ticker}')
-                continue
-
-            starting_cap = row['Starting Cap']
-
-            if is_numeric_and_not_zero(starting_cap) and ticker not in skipped_etfs:
-                all_etf_dict[ticker]['starting_cap'] = starting_cap
+        for result in results:
+            if result is not None:
+                ticker, data = result
+                all_etf_dict[ticker] = data
 
         return all_etf_dict
 
@@ -119,4 +182,5 @@ if __name__ == "__main__":
 
     first_trust_res = Scrape_First_Trust(driver)
 
-    print(first_trust_res)
+    with open("first_trust_scrape.json", 'w') as json_file:
+        json_file.write(json.dumps(first_trust_res, indent=2))

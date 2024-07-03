@@ -1,7 +1,20 @@
 import os
+from weakref import ref
 from selenium.webdriver.chrome.options import Options
 import undetected_chromedriver as uc
 from datetime import datetime
+
+
+def map_reference_asset_to_generic(reference_asset):
+    reference_asset = reference_asset.lower()
+    if 'gold' in reference_asset:
+        return "Gold"
+    elif 's&p' in reference_asset or 'spy' in reference_asset:
+        return "US Large Cap"
+    elif 'qqq' in reference_asset:
+        return 'QQQ'
+    else:
+        return "No Generic Reference Asset"
 
 
 def parse_date(date_str):
@@ -18,8 +31,8 @@ def parse_date(date_str):
 
 
 def calculate_reset_schedule(date_str1, date_str2, date_format='%m/%d/%Y'):
-    date1 = parse_date(date_str1)
-    date2 = parse_date(date_str2)
+    date1 = parse_date(date_str1.strip())
+    date2 = parse_date(date_str2.strip())
 
     # Calculate the days in between
     num_days = (date2 - date1).days
@@ -46,7 +59,7 @@ def set_chrome_options() -> Options:
     """
     chrome_options = uc.ChromeOptions()
 
-    chrome_options.add_argument("--headless")
+    # chrome_options.add_argument("--headless")
     chrome_options.add_argument("--ignore-certificate-errors")
     chrome_options.add_argument("--no-sandbox")
     chrome_options.add_argument("--disable-dev-shm-usage")
