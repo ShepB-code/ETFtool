@@ -5,9 +5,15 @@ from selenium.webdriver.support import expected_conditions as EC
 from time import sleep
 import pandas as pd
 import time
-from global_constants import *
-from helper_funcs import *
 
+try:
+    # This will work when running individual scrapers
+    from global_constants import *
+    from helper_funcs import *
+except ImportError:
+    # This will work when running through etf_scraper.py
+    from .global_constants import *
+    from .helper_funcs import *
 
 def Scrape_Innovator(driver):
     print("Scraping Innovator ETFs...")

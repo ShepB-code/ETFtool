@@ -1,6 +1,6 @@
 from flask import Flask, send_file
-from src.etf_scraper import scraper_main
-from src.etf_excel_writer import excel_writer
+from etf_scraper import scraper_main
+from etf_excel_writer import excel_writer
 import os
 
 app = Flask(__name__)

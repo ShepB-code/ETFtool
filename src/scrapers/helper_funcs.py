@@ -53,20 +53,20 @@ def is_numeric_and_not_zero(num):
         return False
 
 
-def set_chrome_options() -> Options:
+def set_chrome_options():
     """Sets chrome options for Selenium.
     Chrome options for headless browser is enabled.
     """
     chrome_options = uc.ChromeOptions()
 
-    chrome_options.add_argument("--headless")
-    chrome_options.add_argument("--ignore-certificate-errors")
-    chrome_options.add_argument("--no-sandbox")
-    chrome_options.add_argument("--disable-dev-shm-usage")
-    chrome_options.add_argument('--blink-settings=imagesEnabled=false')
-    chrome_options.add_argument('--disable-css')
+    chrome_options.add_argument(argument="--headless")
+    chrome_options.add_argument(argument="--ignore-certificate-errors")
+    chrome_options.add_argument(argument="--no-sandbox")
+    chrome_options.add_argument(argument="--disable-dev-shm-usage")
+    chrome_options.add_argument(argument='--blink-settings=imagesEnabled=false')
+    chrome_options.add_argument(argument='--disable-css')
     ua = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/117.0.0.0 Safari/537.36'
-    chrome_options.add_argument(f'--user-agent={ua}')
+    chrome_options.add_argument(argument=f'--user-agent={ua}')
 
     chrome_prefs = {}
     chrome_options.experimental_options["prefs"] = chrome_prefs

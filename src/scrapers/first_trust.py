@@ -1,18 +1,25 @@
-import os
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, NavigableString, Tag
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from time import sleep
-import pandas as pd
-import time
-from global_constants import *
-from helper_funcs import *
+import undetected_chromedriver as uc
+
+# from global_constants import EXCLUSIONS
+# from helper_funcs import map_reference_asset_to_generic, calculate_reset_schedule, is_numeric_and_not_zero, set_chrome_options
 import json
 
+try:
+    # This will work when running individual scrapers
+    from global_constants import *
+    from helper_funcs import *
+except ImportError:
+    # This will work when running through etf_scraper.py
+    from .global_constants import *
+    from .helper_funcs import *
 
 def scrape_first_trust_etf(driver, handle, ticker):
     print(f'Scraping: {ticker}')
+
     try:
         driver.switch_to.window(handle)
 
@@ -21,7 +28,7 @@ def scrape_first_trust_etf(driver, handle, ticker):
 
         soup = BeautifulSoup(driver.page_source, "html.parser")
 
-        fund_overview_table = soup.find(
+        fund_overview_table: Tag | NavigableString | None = soup.find(
             'table', {'id': 'FundOverview_FundControlContainer_NameValuePairListing'})
 
         value_tables = soup.findAll('table', {'class': 'fundGrid'})
@@ -37,7 +44,7 @@ def scrape_first_trust_etf(driver, handle, ticker):
             secondary_outcome_period_table = value_tables[2]  # this is a hack
 
             # data from "Fund Overview"
-            expense_ratio = fund_overview_table.findAll(
+            expense_ratio = fund_overview_table.findAll( # type: ignore
                 'tr')[13].findAll('td')[1].text.strip('%')
 
             # data from "Outcome Period Values"
@@ -126,7 +133,8 @@ def Scrape_First_Trust(driver):
         driver.get(etf_url)
 
         WebDriverWait(driver, 10).until(
-            EC.presence_of_element_located((By.ID, "Table1")))
+            EC.presence_of_element_located((By.TAG_NAME, "body"))
+        )
 
         soup = BeautifulSoup(driver.page_source, "html.parser")
 
@@ -182,5 +190,5 @@ if __name__ == "__main__":
 
     first_trust_res = Scrape_First_Trust(driver)
 
-    with open("first_trust_scrape.json", 'w') as json_file:
+    with open(file="first_trust_scrape.json", mode='w', encoding="utf-8") as json_file:
         json_file.write(json.dumps(first_trust_res, indent=2))

@@ -2,9 +2,16 @@ from bs4 import BeautifulSoup
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from global_constants import *
-from helper_funcs import *
 import json
+
+try:
+    # This will work when running individual scrapers
+    from global_constants import *
+    from helper_funcs import *
+except ImportError:
+    # This will work when running through etf_scraper.py
+    from .global_constants import *
+    from .helper_funcs import *
 
 
 def scrape_pacer_etf(driver, handle, ticker):
